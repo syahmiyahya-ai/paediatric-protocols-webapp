@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#00b8c4" />
+    <title>Paediatric Protocols</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="menu-pane" aria-label="Paediatric protocol contents">
+        <header class="app-header">
+          <div>
+            <p class="source-label">MOH 5th Edition</p>
+            <h1>Paediatric Protocols</h1>
+          </div>
+          <button class="icon-button" id="installButton" type="button" hidden aria-label="Install app">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 19h14" /></svg>
+          </button>
+        </header>
+
+        <div class="search-wrap">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" /></svg>
+          <input id="searchInput" type="search" placeholder="Search protocol" autocomplete="off" />
+        </div>
+
+        <nav class="quick-tabs" aria-label="Quick filters">
+          <button class="quick-tab is-active" type="button" data-filter="contents">Contents</button>
+          <button class="quick-tab" type="button" data-filter="bookmarks">Bookmarks</button>
+          <button class="quick-tab" type="button" data-filter="recent">Recent</button>
+        </nav>
+
+        <div class="status-line" id="statusLine"></div>
+        <div class="section-list" id="sectionList"></div>
+      </section>
+
+      <section class="viewer-pane" aria-label="PDF page viewer">
+        <article class="chapter-card" id="chapterCard">
+          <button class="chapter-action-button chapter-back-button" id="backButton" type="button" aria-label="Back to contents">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18 9 12l6-6" /></svg>
+          </button>
+          <div class="chapter-copy">
+            <p id="chapterMeta">Select a protocol from the contents.</p>
+            <h2 id="chapterTitle">Paediatric Protocols</h2>
+            <p id="chapterPageMeta">Choose a chapter to open its PDF page.</p>
+          </div>
+          <div class="chapter-actions" aria-label="Chapter navigation">
+            <button class="chapter-action-button" id="previousChapter" type="button" aria-label="Previous chapter">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m11 17-5-5 5-5M18 17l-5-5 5-5" /></svg>
+            </button>
+            <a class="chapter-action-button" id="openPdfLink" href="assets/paediatric-protocols-5th-edition.pdf" target="_blank" rel="noreferrer" aria-label="Open PDF page">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" /></svg>
+            </a>
+            <button class="chapter-action-button" id="nextChapter" type="button" aria-label="Next chapter">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 17 5-5-5-5M13 17l5-5-5-5" /></svg>
+            </button>
+            <button class="chapter-action-button" id="bookmarkButton" type="button" aria-label="Bookmark chapter">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16l-5-3-5 3V4Z" /></svg>
+            </button>
+          </div>
+          <div class="related-files" id="relatedFiles" aria-label="Related chapter files"></div>
+        </article>
+
+        <div class="pdf-frame">
+          <div class="pdf-toolbar">
+            <span id="pageLabel">PDF page -</span>
+          </div>
+          <div class="canvas-wrap" id="canvasWrap">
+            <canvas id="pdfCanvas"></canvas>
+            <div class="loading-panel" id="loadingPanel">Loading PDF page...</div>
+          </div>
+          <button class="page-tap-zone page-tap-left" id="pageBack" type="button" aria-label="Previous PDF page">
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg></span>
+          </button>
+          <button class="page-tap-zone page-tap-right" id="pageForward" type="button" aria-label="Next PDF page">
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
