@@ -1,4 +1,4 @@
-const CACHE_NAME = "paeds-protocols-v7";
+const CACHE_NAME = "paeds-protocols-v8";
 const ASSETS = [
   "./",
   "./index.html",
@@ -6,6 +6,9 @@ const ASSETS = [
   "./app.js",
   "./manifest.webmanifest",
   "./assets/icon.svg",
+  "./assets/icon-192.png",
+  "./assets/icon-512.png",
+  "./assets/apple-touch-icon.png",
   "./vendor/pdf.min.mjs",
   "./vendor/pdf.worker.min.mjs",
 ];
