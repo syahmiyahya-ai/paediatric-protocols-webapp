@@ -229,7 +229,11 @@ const els = {
 let pdfDocument;
 let renderTask;
 let deferredInstallPrompt;
-let controlsTimer;
+let upwardRevealDistance = 0;
+let lastCanvasScrollTop = 0;
+let lastTouchY = 0;
+
+const UPWARD_REVEAL_THRESHOLD = 140;
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = "./vendor/pdf.worker.min.mjs";
 
@@ -258,7 +262,6 @@ function bindEvents() {
   });
 
   els.backButton.addEventListener("click", () => {
-    window.clearTimeout(controlsTimer);
     els.viewerPane.classList.remove("is-open", "controls-hidden");
   });
   els.bookmarkButton.addEventListener("click", toggleBookmark);
@@ -267,9 +270,11 @@ function bindEvents() {
   els.pageBack.addEventListener("click", () => showPdfPage(state.visiblePage - 1));
   els.pageForward.addEventListener("click", () => showPdfPage(state.visiblePage + 1));
 
-  ["pointermove", "touchstart", "click", "keydown"].forEach((eventName) => {
-    els.viewerPane.addEventListener(eventName, () => revealViewerControls(), { passive: true });
-  });
+  els.canvasWrap.addEventListener("pointerdown", hideViewerControls, { passive: true });
+  els.canvasWrap.addEventListener("wheel", handlePdfWheel, { passive: true });
+  els.canvasWrap.addEventListener("scroll", handlePdfScroll, { passive: true });
+  els.canvasWrap.addEventListener("touchstart", handlePdfTouchStart, { passive: true });
+  els.canvasWrap.addEventListener("touchmove", handlePdfTouchMove, { passive: true });
 
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
@@ -382,7 +387,7 @@ function selectChapter(number, options = { openViewer: true }) {
   rememberRecent(number);
   updateChapterPanel();
   renderMenu();
-  showPdfPage(chapter.pdfPage);
+  showPdfPage(chapter.pdfPage, { revealCard: true });
   if (options.openViewer) els.viewerPane.classList.add("is-open");
   revealViewerControls();
 }
@@ -420,23 +425,78 @@ function stepChapter(delta) {
   selectChapter(Math.min(Math.max(state.selected.number + delta, 1), chapters.length));
 }
 
-function showPdfPage(pageNumber) {
+function showPdfPage(pageNumber, options = {}) {
   state.visiblePage = Math.min(Math.max(pageNumber, 1), 834);
   els.pageBack.disabled = state.visiblePage <= 1;
   els.pageForward.disabled = state.visiblePage >= 834;
   els.pageLabel.textContent = `PDF page ${state.visiblePage} / 834`;
-  revealViewerControls();
+  if (options.revealCard) revealViewerControls();
+  else hideViewerControls();
   renderPdfPage(state.visiblePage);
 }
 
 function revealViewerControls() {
   els.viewerPane.classList.remove("controls-hidden");
-  window.clearTimeout(controlsTimer);
-  controlsTimer = window.setTimeout(() => {
-    if (!els.viewerPane.matches(":focus-within")) {
-      els.viewerPane.classList.add("controls-hidden");
-    }
-  }, 3200);
+  resetUpwardReveal();
+}
+
+function hideViewerControls() {
+  if (!els.viewerPane.classList.contains("is-open")) return;
+  els.viewerPane.classList.add("controls-hidden");
+}
+
+function resetUpwardReveal() {
+  upwardRevealDistance = 0;
+  lastCanvasScrollTop = els.canvasWrap.scrollTop;
+}
+
+function trackUpwardReveal(distance) {
+  if (!els.viewerPane.classList.contains("controls-hidden")) return;
+
+  if (distance <= 0) {
+    upwardRevealDistance = 0;
+    return;
+  }
+
+  upwardRevealDistance += distance;
+  if (upwardRevealDistance >= UPWARD_REVEAL_THRESHOLD) {
+    revealViewerControls();
+  }
+}
+
+function handlePdfWheel(event) {
+  const isHidden = els.viewerPane.classList.contains("controls-hidden");
+  if (isHidden) {
+    trackUpwardReveal(-event.deltaY);
+    return;
+  }
+
+  if (event.deltaY > 0) hideViewerControls();
+}
+
+function handlePdfScroll() {
+  const nextScrollTop = els.canvasWrap.scrollTop;
+  const delta = nextScrollTop - lastCanvasScrollTop;
+  lastCanvasScrollTop = nextScrollTop;
+
+  if (els.viewerPane.classList.contains("controls-hidden")) {
+    trackUpwardReveal(-delta);
+    return;
+  }
+
+  if (delta > 0) hideViewerControls();
+}
+
+function handlePdfTouchStart(event) {
+  lastTouchY = event.touches?.[0]?.clientY ?? 0;
+  hideViewerControls();
+}
+
+function handlePdfTouchMove(event) {
+  const nextTouchY = event.touches?.[0]?.clientY ?? lastTouchY;
+  const delta = nextTouchY - lastTouchY;
+  lastTouchY = nextTouchY;
+  trackUpwardReveal(delta);
 }
 
 async function renderPdfPage(pageNumber) {
