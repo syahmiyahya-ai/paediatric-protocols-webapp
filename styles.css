@@ -11,6 +11,12 @@
   --purple: #7d5ba6;
   --slate-blue: #2f90a8;
   --shadow: 0 16px 34px rgba(31, 45, 46, 0.14);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in: cubic-bezier(0.32, 0, 0.67, 0);
+  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-fast: 150ms;
+  --motion-medium: 260ms;
+  --motion-slow: 420ms;
   color-scheme: light;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -26,6 +32,7 @@ body {
     var(--bg);
   background-size: 56px 100%;
   color: var(--ink);
+  animation: app-fade-in var(--motion-slow) var(--ease-out) both;
 }
 
 button,
@@ -35,6 +42,12 @@ input {
 
 button {
   cursor: pointer;
+}
+
+button,
+a,
+input {
+  -webkit-tap-highlight-color: transparent;
 }
 
 svg {
@@ -129,6 +142,20 @@ h1 {
   place-items: center;
   flex: 0 0 auto;
   border-radius: 4px;
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease,
+    color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease;
+}
+
+.icon-button:active,
+.chapter-action-button:active,
+.resource-icon-button:active,
+.resource-page-button:active,
+.page-tap-zone:active span {
+  transform: scale(0.94);
 }
 
 .icon-button.is-active {
@@ -151,6 +178,16 @@ h1 {
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 8px 20px rgba(43, 43, 47, 0.05);
   backdrop-filter: blur(10px);
+  transition:
+    border-color var(--motion-medium) ease,
+    box-shadow var(--motion-medium) ease,
+    transform var(--motion-medium) var(--ease-out);
+}
+
+.search-wrap:focus-within {
+  border-color: rgba(0, 184, 196, 0.72);
+  box-shadow: 0 12px 28px rgba(0, 125, 136, 0.12);
+  transform: translateY(-1px);
 }
 
 .search-wrap svg {
@@ -185,6 +222,15 @@ h1 {
   color: var(--muted);
   font-size: 0.86rem;
   font-weight: 750;
+  transition:
+    background-color var(--motion-medium) ease,
+    box-shadow var(--motion-medium) ease,
+    color var(--motion-medium) ease,
+    transform var(--motion-fast) var(--ease-out);
+}
+
+.quick-tab:active {
+  transform: translateY(1px);
 }
 
 .quick-tab:last-child {
@@ -217,6 +263,18 @@ h1 {
   border-radius: 4px;
   background: var(--surface);
   box-shadow: 0 6px 16px rgba(43, 43, 47, 0.05);
+  animation: list-rise var(--motion-medium) var(--ease-out) both;
+  animation-delay: calc(var(--item-index, 0) * 16ms);
+  transition:
+    border-color var(--motion-medium) ease,
+    box-shadow var(--motion-medium) ease,
+    transform var(--motion-medium) var(--ease-out);
+}
+
+.section-group:has(.section-toggle:focus-visible),
+.section-group:hover {
+  border-color: rgba(0, 184, 196, 0.42);
+  box-shadow: 0 12px 24px rgba(43, 43, 47, 0.08);
 }
 
 .section-toggle {
@@ -231,6 +289,7 @@ h1 {
     linear-gradient(90deg, var(--teal) 0 8px, var(--paper) 8px 100%);
   padding: 12px 14px 12px 20px;
   text-align: left;
+  transition: background-position var(--motion-medium) var(--ease-out);
 }
 
 .section-title {
@@ -251,6 +310,20 @@ h1 {
 
 .chapter-list {
   display: grid;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    max-height var(--motion-slow) var(--ease-smooth),
+    opacity var(--motion-medium) ease,
+    transform var(--motion-medium) var(--ease-out);
+}
+
+.section-group.is-open .chapter-list {
+  max-height: 1700px;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .chapter-row {
@@ -266,6 +339,12 @@ h1 {
   padding: 10px 14px 10px 10px;
   color: inherit;
   text-align: left;
+  animation: row-slide var(--motion-medium) var(--ease-out) both;
+  animation-delay: calc(var(--row-index, 0) * 12ms);
+  transition:
+    background var(--motion-medium) ease,
+    color var(--motion-fast) ease,
+    transform var(--motion-fast) var(--ease-out);
 }
 
 .chapter-row:last-child {
@@ -275,6 +354,10 @@ h1 {
 .chapter-row.is-selected {
   background:
     linear-gradient(90deg, rgba(0, 184, 196, 0.22), rgba(255, 255, 255, 0.96));
+}
+
+.chapter-row:active {
+  transform: translateX(3px);
 }
 
 .chapter-number {
@@ -287,6 +370,13 @@ h1 {
   color: #fff;
   font-size: 0.78rem;
   font-weight: 850;
+  transition:
+    background-color var(--motion-medium) ease,
+    transform var(--motion-medium) var(--ease-out);
+}
+
+.chapter-row.is-selected .chapter-number {
+  transform: scale(1.05);
 }
 
 .chapter-name {
@@ -305,6 +395,12 @@ h1 {
 
 .chevron {
   color: var(--muted);
+  transition: transform var(--motion-medium) var(--ease-out), color var(--motion-medium) ease;
+}
+
+.section-group.is-open > .section-toggle .chevron {
+  color: var(--teal-dark);
+  transform: rotate(180deg);
 }
 
 .empty-state {
@@ -314,6 +410,7 @@ h1 {
   padding: 24px 18px;
   color: var(--muted);
   text-align: center;
+  animation: list-rise var(--motion-medium) var(--ease-out) both;
 }
 
 .viewer-pane {
@@ -326,7 +423,8 @@ h1 {
   padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom));
   background: var(--bg);
   transform: translateX(100%);
-  transition: transform 220ms ease;
+  transition: transform var(--motion-medium) var(--ease-smooth);
+  will-change: transform;
 }
 
 .viewer-pane.is-open {
@@ -350,13 +448,17 @@ h1 {
   padding: 8px;
   box-shadow: 0 8px 18px rgba(43, 43, 47, 0.06);
   backdrop-filter: blur(10px);
-  transition: opacity 180ms ease, transform 180ms ease;
+  transform-origin: top center;
+  transition:
+    opacity var(--motion-medium) ease,
+    transform var(--motion-medium) var(--ease-smooth),
+    box-shadow var(--motion-medium) ease;
 }
 
 .viewer-pane.controls-hidden .chapter-card {
   opacity: 0;
   pointer-events: none;
-  transform: translateY(calc(-100% - 14px));
+  transform: translateY(calc(-100% - 18px)) scale(0.98);
 }
 
 .chapter-copy {
@@ -400,6 +502,12 @@ h1 {
   background: var(--paper);
   color: var(--teal-dark);
   text-decoration: none;
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease,
+    color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease;
 }
 
 .chapter-action-button svg {
@@ -416,6 +524,7 @@ h1 {
   border-color: var(--purple);
   background: var(--purple);
   color: #fff;
+  box-shadow: 0 8px 18px rgba(125, 91, 166, 0.22);
 }
 
 .related-files {
@@ -425,6 +534,7 @@ h1 {
   overflow-x: auto;
   padding: 0 1px 1px;
   scrollbar-width: none;
+  scroll-behavior: smooth;
 }
 
 .related-files:empty {
@@ -455,12 +565,23 @@ h1 {
   padding: 7px 9px;
   text-decoration: none;
   box-shadow: 0 5px 12px rgba(43, 43, 47, 0.06);
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease;
 }
 
 .related-file-link:hover,
 .related-file-link:focus-visible {
   border-color: var(--teal);
   color: var(--purple);
+  box-shadow: 0 8px 18px rgba(0, 125, 136, 0.14);
+  transform: translateY(-1px);
+}
+
+.related-file-link:active {
+  transform: scale(0.97);
 }
 
 .related-file-link svg {
@@ -485,6 +606,7 @@ h1 {
   border-radius: 4px;
   background: #dfe6e5;
   box-shadow: inset 0 0 0 8px rgba(255, 255, 255, 0.3);
+  transition: box-shadow var(--motion-medium) ease;
 }
 
 .pdf-toolbar {
@@ -496,6 +618,14 @@ h1 {
   color: var(--teal-dark);
   font-size: 0.82rem;
   font-weight: 850;
+  transition:
+    opacity var(--motion-medium) ease,
+    transform var(--motion-medium) var(--ease-out);
+}
+
+.viewer-pane.controls-hidden .pdf-toolbar {
+  opacity: 0.72;
+  transform: translateY(-2px);
 }
 
 .canvas-wrap {
@@ -503,6 +633,7 @@ h1 {
   min-height: 0;
   overflow: auto;
   padding: 14px;
+  scroll-behavior: smooth;
 }
 
 .page-tap-zone {
@@ -527,6 +658,11 @@ h1 {
   background: rgba(251, 251, 250, 0.82);
   box-shadow: 0 10px 24px rgba(43, 43, 47, 0.12);
   backdrop-filter: blur(8px);
+  transform: translateX(0);
+  transition:
+    opacity var(--motion-medium) ease,
+    transform var(--motion-medium) var(--ease-smooth),
+    box-shadow var(--motion-fast) ease;
 }
 
 .page-tap-zone svg {
@@ -537,6 +673,16 @@ h1 {
 .page-tap-zone:disabled {
   pointer-events: none;
   opacity: 0;
+}
+
+.viewer-pane.controls-hidden .page-tap-left span {
+  opacity: 0.42;
+  transform: translateX(-12px);
+}
+
+.viewer-pane.controls-hidden .page-tap-right span {
+  opacity: 0.42;
+  transform: translateX(12px);
 }
 
 .page-tap-left {
@@ -563,6 +709,16 @@ canvas {
   margin: 0 auto;
   background: #fff;
   box-shadow: var(--shadow);
+  transition:
+    opacity var(--motion-medium) ease,
+    transform var(--motion-medium) var(--ease-out),
+    box-shadow var(--motion-medium) ease;
+}
+
+.canvas-wrap.is-page-turning canvas,
+.resource-canvas-wrap.is-page-turning canvas {
+  opacity: 0.55;
+  transform: translateY(4px) scale(0.995);
 }
 
 .loading-panel {
@@ -574,6 +730,7 @@ canvas {
   background: rgba(255, 255, 255, 0.92);
   color: var(--muted);
   font-weight: 750;
+  animation: soft-fade-in var(--motion-medium) ease both;
 }
 
 .loading-panel[hidden] {
@@ -586,6 +743,7 @@ canvas {
   z-index: 30;
   display: grid;
   padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom));
+  pointer-events: none;
 }
 
 .resource-viewer[hidden] {
@@ -600,6 +758,8 @@ canvas {
     radial-gradient(circle at 82% 8%, rgba(0, 184, 196, 0.24), transparent 30%),
     rgba(33, 48, 51, 0.54);
   backdrop-filter: blur(8px);
+  opacity: 0;
+  transition: opacity var(--motion-medium) ease;
 }
 
 .resource-sheet {
@@ -612,6 +772,25 @@ canvas {
   border-radius: 8px;
   background: var(--paper);
   box-shadow: 0 28px 70px rgba(22, 36, 38, 0.36);
+  opacity: 0;
+  transform: translateY(18px) scale(0.985);
+  transition:
+    opacity var(--motion-medium) ease,
+    transform var(--motion-medium) var(--ease-smooth);
+  will-change: transform, opacity;
+}
+
+.resource-viewer.is-open {
+  pointer-events: auto;
+}
+
+.resource-viewer.is-open .resource-backdrop,
+.resource-viewer.is-open .resource-sheet {
+  opacity: 1;
+}
+
+.resource-viewer.is-open .resource-sheet {
+  transform: translateY(0) scale(1);
 }
 
 .resource-header {
@@ -664,6 +843,18 @@ canvas {
   background: var(--paper);
   color: var(--teal-dark);
   text-decoration: none;
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease,
+    color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease;
+}
+
+.resource-icon-button:hover,
+.resource-icon-button:focus-visible {
+  border-color: var(--teal);
+  box-shadow: 0 8px 18px rgba(0, 125, 136, 0.12);
 }
 
 .resource-icon-button svg {
@@ -702,6 +893,7 @@ canvas {
   min-height: 0;
   overflow: auto;
   padding: 12px;
+  scroll-behavior: smooth;
 }
 
 .resource-canvas-wrap canvas {
@@ -718,6 +910,7 @@ canvas {
   color: var(--muted);
   font-size: 0.82rem;
   font-weight: 850;
+  animation: soft-fade-in var(--motion-medium) ease both;
 }
 
 .resource-loading[hidden] {
@@ -747,6 +940,12 @@ canvas {
   border-radius: 4px;
   background: var(--paper);
   color: var(--teal-dark);
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease,
+    color var(--motion-fast) ease,
+    opacity var(--motion-fast) ease;
 }
 
 .resource-page-button svg {
@@ -762,6 +961,57 @@ canvas {
 .resource-body img {
   object-fit: contain;
   padding: 12px;
+}
+
+@keyframes app-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes list-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes row-slide {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes soft-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
 }
 
 @media (min-width: 900px) {

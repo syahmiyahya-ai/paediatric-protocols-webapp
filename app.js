@@ -244,6 +244,7 @@ let renderTask;
 let resourceDocument;
 let resourceRenderTask;
 let resourcePage = 1;
+let resourceCloseTimer;
 let deferredInstallPrompt;
 let upwardRevealDistance = 0;
 let lastCanvasScrollTop = 0;
@@ -323,12 +324,14 @@ function renderMenu() {
 
   if (!filtered.length) {
     els.sectionList.append(emptyState("No matching protocol found."));
+    setMotionOrder();
     return;
   }
 
   if (state.filter !== "contents" || state.query) {
     const group = makeSectionGroup({ title: getFilterTitle(), id: 0 }, filtered, true);
     els.sectionList.append(group);
+    setMotionOrder();
     return;
   }
 
@@ -336,6 +339,7 @@ function renderMenu() {
     const sectionChapters = section.chapters.map((number) => chapterByNumber.get(number)).filter((chapter) => filteredNumbers.has(chapter.number));
     if (sectionChapters.length) els.sectionList.append(makeSectionGroup(section, sectionChapters));
   });
+  setMotionOrder();
 }
 
 function makeSectionGroup(section, sectionChapters, forceOpen = false) {
@@ -358,9 +362,9 @@ function makeSectionGroup(section, sectionChapters, forceOpen = false) {
   sectionChapters.forEach((chapter) => list.append(makeChapterRow(chapter)));
 
   const shouldOpen = forceOpen || sectionChapters.some((chapter) => chapter.number === state.selected?.number);
-  list.hidden = !shouldOpen;
+  group.classList.toggle("is-open", shouldOpen);
   toggle.addEventListener("click", () => {
-    list.hidden = !list.hidden;
+    group.classList.toggle("is-open");
   });
 
   group.append(toggle, list);
@@ -450,8 +454,9 @@ function openRelatedFile(file) {
   hideViewerControls();
   els.resourceTitle.textContent = file.title;
   els.resourceOpen.href = file.href;
+  window.clearTimeout(resourceCloseTimer);
   els.resourceViewer.hidden = false;
-  els.resourceViewer.classList.add("is-open");
+  window.requestAnimationFrame(() => els.resourceViewer.classList.add("is-open"));
 
   const isImage = /\.(png|jpe?g|webp|gif|svg)$/i.test(file.href);
   els.resourceImage.hidden = !isImage;
@@ -469,9 +474,12 @@ function openRelatedFile(file) {
 
 function closeRelatedFile() {
   els.resourceViewer.classList.remove("is-open");
-  els.resourceViewer.hidden = true;
-  els.resourceImage.removeAttribute("src");
-  clearRelatedPdf();
+  window.clearTimeout(resourceCloseTimer);
+  resourceCloseTimer = window.setTimeout(() => {
+    els.resourceViewer.hidden = true;
+    els.resourceImage.removeAttribute("src");
+    clearRelatedPdf();
+  }, prefersReducedMotion() ? 1 : 260);
   revealViewerControls();
 }
 
@@ -491,6 +499,7 @@ async function openRelatedPdf(href) {
 async function showRelatedPage(pageNumber) {
   if (!resourceDocument) return;
 
+  beginPageMotion(els.resourceCanvasWrap);
   resourcePage = Math.min(Math.max(pageNumber, 1), resourceDocument.numPages);
   els.resourcePrevious.disabled = resourcePage <= 1;
   els.resourceNext.disabled = resourcePage >= resourceDocument.numPages;
@@ -528,6 +537,7 @@ async function showRelatedPage(pageNumber) {
   } finally {
     els.resourceLoading.hidden = true;
     els.resourceCanvasWrap.scrollTop = 0;
+    endPageMotion(els.resourceCanvasWrap);
   }
 }
 
@@ -552,6 +562,7 @@ function stepChapter(delta) {
 }
 
 function showPdfPage(pageNumber, options = {}) {
+  beginPageMotion(els.canvasWrap);
   state.visiblePage = Math.min(Math.max(pageNumber, 1), 834);
   els.pageBack.disabled = state.visiblePage <= 1;
   els.pageForward.disabled = state.visiblePage >= 834;
@@ -657,6 +668,7 @@ async function renderPdfPage(pageNumber) {
     }
   } finally {
     els.loadingPanel.hidden = true;
+    endPageMotion(els.canvasWrap);
   }
 }
 
@@ -713,6 +725,29 @@ function debounce(fn, delay) {
     window.clearTimeout(timer);
     timer = window.setTimeout(() => fn(...args), delay);
   };
+}
+
+function setMotionOrder() {
+  els.sectionList.querySelectorAll(".section-group, .empty-state").forEach((item, index) => {
+    item.style.setProperty("--item-index", Math.min(index, 18));
+  });
+  els.sectionList.querySelectorAll(".chapter-row").forEach((item, index) => {
+    item.style.setProperty("--row-index", Math.min(index, 24));
+  });
+}
+
+function beginPageMotion(node) {
+  node.classList.remove("is-page-turning");
+  void node.offsetWidth;
+  node.classList.add("is-page-turning");
+}
+
+function endPageMotion(node) {
+  window.setTimeout(() => node.classList.remove("is-page-turning"), prefersReducedMotion() ? 1 : 120);
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 function registerServiceWorker() {
