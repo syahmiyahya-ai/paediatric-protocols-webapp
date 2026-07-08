@@ -292,15 +292,6 @@ h1 {
     transform var(--motion-medium) var(--ease-out);
 }
 
-.section-group::before {
-  position: absolute;
-  inset: 0 auto 0 0;
-  z-index: 1;
-  width: 7px;
-  content: "";
-  background: var(--section-accent);
-}
-
 .section-group:has(.section-toggle:focus-visible),
 .section-group:hover {
   border-color: rgba(0, 184, 196, 0.42);
@@ -318,7 +309,7 @@ h1 {
   background:
     linear-gradient(90deg, color-mix(in srgb, var(--section-accent) 10%, transparent), transparent 60%),
     var(--paper);
-  padding: 13px 13px 13px 20px;
+  padding: 13px;
   text-align: left;
   transition:
     background-color var(--motion-medium) ease,
