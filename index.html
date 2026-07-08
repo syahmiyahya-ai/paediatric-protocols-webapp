@@ -80,6 +80,42 @@
             <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
           </button>
         </div>
+
+        <div class="resource-viewer" id="resourceViewer" hidden>
+          <button class="resource-backdrop" id="resourceBackdrop" type="button" aria-label="Close related file"></button>
+          <section class="resource-sheet" role="dialog" aria-modal="true" aria-labelledby="resourceTitle">
+            <header class="resource-header">
+              <button class="resource-icon-button" id="resourceClose" type="button" aria-label="Back to protocol">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18 9 12l6-6" /></svg>
+              </button>
+              <div class="resource-heading">
+                <p>Related file</p>
+                <h2 id="resourceTitle">Document</h2>
+              </div>
+              <a class="resource-icon-button" id="resourceOpen" href="#" target="_blank" rel="noreferrer" aria-label="Open related file in browser">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" /></svg>
+              </a>
+            </header>
+            <div class="resource-body">
+              <div class="resource-pdf" id="resourcePdf">
+                <div class="resource-canvas-wrap" id="resourceCanvasWrap">
+                  <canvas id="resourceCanvas"></canvas>
+                  <div class="resource-loading" id="resourceLoading">Loading related file...</div>
+                </div>
+                <div class="resource-pager">
+                  <button class="resource-page-button" id="resourcePrevious" type="button" aria-label="Previous related file page">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+                  </button>
+                  <span id="resourcePageLabel">Page -</span>
+                  <button class="resource-page-button" id="resourceNext" type="button" aria-label="Next related file page">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+                  </button>
+                </div>
+              </div>
+              <img id="resourceImage" alt="" />
+            </div>
+          </section>
+        </div>
       </section>
     </main>
 

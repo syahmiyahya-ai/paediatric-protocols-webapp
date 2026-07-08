@@ -224,10 +224,26 @@ const els = {
   canvasWrap: document.querySelector("#canvasWrap"),
   loadingPanel: document.querySelector("#loadingPanel"),
   installButton: document.querySelector("#installButton"),
+  resourceViewer: document.querySelector("#resourceViewer"),
+  resourceBackdrop: document.querySelector("#resourceBackdrop"),
+  resourceClose: document.querySelector("#resourceClose"),
+  resourceOpen: document.querySelector("#resourceOpen"),
+  resourceTitle: document.querySelector("#resourceTitle"),
+  resourcePdf: document.querySelector("#resourcePdf"),
+  resourceCanvasWrap: document.querySelector("#resourceCanvasWrap"),
+  resourceCanvas: document.querySelector("#resourceCanvas"),
+  resourceLoading: document.querySelector("#resourceLoading"),
+  resourcePrevious: document.querySelector("#resourcePrevious"),
+  resourceNext: document.querySelector("#resourceNext"),
+  resourcePageLabel: document.querySelector("#resourcePageLabel"),
+  resourceImage: document.querySelector("#resourceImage"),
 };
 
 let pdfDocument;
 let renderTask;
+let resourceDocument;
+let resourceRenderTask;
+let resourcePage = 1;
 let deferredInstallPrompt;
 let upwardRevealDistance = 0;
 let lastCanvasScrollTop = 0;
@@ -275,6 +291,13 @@ function bindEvents() {
   els.canvasWrap.addEventListener("scroll", handlePdfScroll, { passive: true });
   els.canvasWrap.addEventListener("touchstart", handlePdfTouchStart, { passive: true });
   els.canvasWrap.addEventListener("touchmove", handlePdfTouchMove, { passive: true });
+  els.resourceClose.addEventListener("click", closeRelatedFile);
+  els.resourceBackdrop.addEventListener("click", closeRelatedFile);
+  els.resourcePrevious.addEventListener("click", () => showRelatedPage(resourcePage - 1));
+  els.resourceNext.addEventListener("click", () => showRelatedPage(resourcePage + 1));
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !els.resourceViewer.hidden) closeRelatedFile();
+  });
 
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
@@ -410,15 +433,118 @@ function renderRelatedFiles(chapterNumber) {
   els.relatedFiles.replaceChildren();
 
   files.forEach((file) => {
-    const link = document.createElement("a");
-    link.className = "related-file-link";
-    link.href = file.href;
-    link.target = "_blank";
-    link.rel = "noreferrer";
-    link.textContent = file.title;
-    link.setAttribute("aria-label", `Open related file: ${file.title}`);
-    els.relatedFiles.append(link);
+    const button = document.createElement("button");
+    button.className = "related-file-link";
+    button.type = "button";
+    button.innerHTML = `
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7z" /><path d="M14 3v5h5" /></svg>
+      <span>${file.title}</span>
+    `;
+    button.setAttribute("aria-label", `Open related file: ${file.title}`);
+    button.addEventListener("click", () => openRelatedFile(file));
+    els.relatedFiles.append(button);
   });
+}
+
+function openRelatedFile(file) {
+  hideViewerControls();
+  els.resourceTitle.textContent = file.title;
+  els.resourceOpen.href = file.href;
+  els.resourceViewer.hidden = false;
+  els.resourceViewer.classList.add("is-open");
+
+  const isImage = /\.(png|jpe?g|webp|gif|svg)$/i.test(file.href);
+  els.resourceImage.hidden = !isImage;
+  els.resourcePdf.hidden = isImage;
+  els.resourceImage.removeAttribute("src");
+  clearRelatedPdf();
+
+  if (isImage) {
+    els.resourceImage.src = file.href;
+    els.resourceImage.alt = file.title;
+  } else {
+    openRelatedPdf(file.href);
+  }
+}
+
+function closeRelatedFile() {
+  els.resourceViewer.classList.remove("is-open");
+  els.resourceViewer.hidden = true;
+  els.resourceImage.removeAttribute("src");
+  clearRelatedPdf();
+  revealViewerControls();
+}
+
+async function openRelatedPdf(href) {
+  try {
+    els.resourceLoading.hidden = false;
+    els.resourcePageLabel.textContent = "Loading...";
+    resourceDocument = await pdfjsLib.getDocument(href).promise;
+    await showRelatedPage(1);
+  } catch (error) {
+    console.error(error);
+    els.resourceLoading.hidden = false;
+    els.resourceLoading.textContent = "Unable to open this related file.";
+  }
+}
+
+async function showRelatedPage(pageNumber) {
+  if (!resourceDocument) return;
+
+  resourcePage = Math.min(Math.max(pageNumber, 1), resourceDocument.numPages);
+  els.resourcePrevious.disabled = resourcePage <= 1;
+  els.resourceNext.disabled = resourcePage >= resourceDocument.numPages;
+  els.resourcePageLabel.textContent = `Page ${resourcePage} / ${resourceDocument.numPages}`;
+  els.resourceLoading.textContent = "Loading related file...";
+  els.resourceLoading.hidden = false;
+
+  try {
+    if (resourceRenderTask) resourceRenderTask.cancel();
+    const page = await resourceDocument.getPage(resourcePage);
+    const baseViewport = page.getViewport({ scale: 1 });
+    const width = Math.max(260, els.resourceCanvasWrap.clientWidth - 24);
+    const scale = width / baseViewport.width;
+    const outputScale = window.devicePixelRatio || 1;
+    const viewport = page.getViewport({ scale });
+    const context = els.resourceCanvas.getContext("2d");
+
+    els.resourceCanvas.width = Math.floor(viewport.width * outputScale);
+    els.resourceCanvas.height = Math.floor(viewport.height * outputScale);
+    els.resourceCanvas.style.width = `${Math.floor(viewport.width)}px`;
+    els.resourceCanvas.style.height = `${Math.floor(viewport.height)}px`;
+
+    resourceRenderTask = page.render({
+      canvasContext: context,
+      viewport,
+      transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null,
+    });
+    await resourceRenderTask.promise;
+  } catch (error) {
+    if (error?.name !== "RenderingCancelledException") {
+      console.error(error);
+      els.resourceLoading.textContent = "Unable to render this page.";
+      return;
+    }
+  } finally {
+    els.resourceLoading.hidden = true;
+    els.resourceCanvasWrap.scrollTop = 0;
+  }
+}
+
+function clearRelatedPdf() {
+  if (resourceRenderTask) resourceRenderTask.cancel();
+  resourceRenderTask = null;
+  if (resourceDocument) resourceDocument.destroy();
+  resourceDocument = null;
+  resourcePage = 1;
+  els.resourceCanvas.removeAttribute("width");
+  els.resourceCanvas.removeAttribute("height");
+  els.resourceCanvas.removeAttribute("style");
+  els.resourcePrevious.disabled = true;
+  els.resourceNext.disabled = true;
+  els.resourcePageLabel.textContent = "Page -";
+  els.resourceLoading.hidden = true;
+  els.resourceLoading.textContent = "Loading related file...";
 }
 
 function stepChapter(delta) {
