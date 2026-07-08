@@ -1,4 +1,4 @@
-const CACHE_NAME = "paeds-protocols-v12";
+const CACHE_NAME = "paeds-protocols-v13";
 const ASSETS = [
   "./",
   "./index.html",

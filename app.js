@@ -345,15 +345,22 @@ function renderMenu() {
 function makeSectionGroup(section, sectionChapters, forceOpen = false) {
   const group = document.createElement("article");
   group.className = "section-group";
+  group.style.setProperty("--section-accent", getSectionAccent(section.id));
 
   const toggle = document.createElement("button");
   toggle.className = "section-toggle";
   toggle.type = "button";
+  const relatedCount = sectionChapters.reduce((total, chapter) => total + (relatedFilesByChapter.get(chapter.number)?.length || 0), 0);
+  const sectionLabel = section.id ? `Section ${section.id}` : getFilterTitle();
+  const firstChapter = sectionChapters[0];
+  const previewText = firstChapter ? `Starts with Ch. ${firstChapter.number}: ${firstChapter.title}` : "No protocols";
   toggle.innerHTML = `
-    <span>
-      <span class="section-title">${section.id ? `Section ${section.id}: ` : ""}${section.title}</span>
-      <span class="section-meta">${sectionChapters.length} protocol${sectionChapters.length === 1 ? "" : "s"}</span>
+    <span class="section-copy">
+      <span class="section-kicker">${sectionLabel} - ${sectionChapters.length} protocol${sectionChapters.length === 1 ? "" : "s"}</span>
+      <span class="section-title">${section.title}</span>
+      <span class="section-meta">${previewText}</span>
     </span>
+    ${relatedCount ? `<span class="section-badge">${relatedCount} file${relatedCount === 1 ? "" : "s"}</span>` : ""}
     <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
   `;
 
@@ -362,9 +369,9 @@ function makeSectionGroup(section, sectionChapters, forceOpen = false) {
   sectionChapters.forEach((chapter) => list.append(makeChapterRow(chapter)));
 
   const shouldOpen = forceOpen || sectionChapters.some((chapter) => chapter.number === state.selected?.number);
-  group.classList.toggle("is-open", shouldOpen);
+  setSectionOpen(group, toggle, shouldOpen);
   toggle.addEventListener("click", () => {
-    group.classList.toggle("is-open");
+    setSectionOpen(group, toggle, !group.classList.contains("is-open"));
   });
 
   group.append(toggle, list);
@@ -386,6 +393,16 @@ function makeChapterRow(chapter) {
   `;
   row.addEventListener("click", () => selectChapter(chapter.number));
   return row;
+}
+
+function setSectionOpen(group, toggle, isOpen) {
+  group.classList.toggle("is-open", isOpen);
+  toggle.setAttribute("aria-expanded", String(isOpen));
+}
+
+function getSectionAccent(sectionId) {
+  const accents = ["#00b8c4", "#2f90a8", "#7d5ba6", "#17877b", "#8b6f47", "#007d88"];
+  return accents[Math.abs(sectionId || 0) % accents.length];
 }
 
 function getFilteredChapters() {

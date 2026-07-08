@@ -69,7 +69,11 @@ svg {
   display: flex;
   flex-direction: column;
   min-height: 100svh;
-  padding: max(12px, env(safe-area-inset-top)) 12px 18px;
+  padding: max(12px, env(safe-area-inset-top)) 16px 18px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.38) 0 1px, transparent 1px 100%),
+    linear-gradient(180deg, rgba(251, 251, 250, 0.58), rgba(223, 230, 229, 0));
+  background-size: 72px 100%, auto;
 }
 
 .app-header,
@@ -82,9 +86,9 @@ svg {
   position: relative;
   justify-content: space-between;
   gap: 12px;
-  min-height: 118px;
-  margin: -12px -12px 14px;
-  padding: max(18px, env(safe-area-inset-top)) 16px 18px;
+  min-height: 154px;
+  margin: -12px -16px 16px;
+  padding: max(22px, env(safe-area-inset-top)) 18px 22px;
   overflow: hidden;
   border-bottom: 1px solid var(--line);
   background: var(--paper);
@@ -104,6 +108,19 @@ svg {
   opacity: 0.95;
 }
 
+.app-header::after {
+  position: absolute;
+  right: 18px;
+  bottom: 16px;
+  width: 74px;
+  height: 12px;
+  content: "";
+  background:
+    linear-gradient(90deg, var(--teal) 0 34%, transparent 34% 42%, var(--slate-blue) 42% 70%, transparent 70% 78%, var(--purple) 78% 100%);
+  border-radius: 999px;
+  opacity: 0.78;
+}
+
 .app-header > * {
   position: relative;
   z-index: 1;
@@ -121,7 +138,7 @@ svg {
 h1 {
   margin: 0;
   max-width: 260px;
-  font-size: clamp(2rem, 10vw, 2.7rem);
+  font-size: clamp(2.1rem, 10vw, 2.95rem);
   line-height: 0.95;
   letter-spacing: 0;
 }
@@ -171,10 +188,10 @@ h1 {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 0 0 12px;
-  padding: 12px 14px;
+  margin: 0 0 14px;
+  padding: 13px 14px;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 8px 20px rgba(43, 43, 47, 0.05);
   backdrop-filter: blur(10px);
@@ -210,8 +227,9 @@ h1 {
   gap: 0;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: 8px;
   background: var(--surface);
+  box-shadow: 0 8px 18px rgba(43, 43, 47, 0.05);
 }
 
 .quick-tab {
@@ -246,29 +264,41 @@ h1 {
 
 .status-line {
   min-height: 28px;
-  padding: 12px 2px 0;
+  padding: 14px 2px 2px;
   color: var(--muted);
   font-size: 0.86rem;
+  font-weight: 760;
 }
 
 .section-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   padding: 8px 0 92px;
 }
 
 .section-group {
+  --section-accent: var(--teal);
+  position: relative;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: 8px;
   background: var(--surface);
-  box-shadow: 0 6px 16px rgba(43, 43, 47, 0.05);
+  box-shadow: 0 8px 18px rgba(43, 43, 47, 0.07);
   animation: list-rise var(--motion-medium) var(--ease-out) both;
   animation-delay: calc(var(--item-index, 0) * 16ms);
   transition:
     border-color var(--motion-medium) ease,
     box-shadow var(--motion-medium) ease,
     transform var(--motion-medium) var(--ease-out);
+}
+
+.section-group::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 1;
+  width: 7px;
+  content: "";
+  background: var(--section-accent);
 }
 
 .section-group:has(.section-toggle:focus-visible),
@@ -280,32 +310,75 @@ h1 {
 .section-toggle {
   display: grid;
   width: 100%;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 9px;
   align-items: center;
   border: 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 0;
   background:
-    linear-gradient(90deg, var(--teal) 0 8px, var(--paper) 8px 100%);
-  padding: 12px 14px 12px 20px;
+    linear-gradient(90deg, color-mix(in srgb, var(--section-accent) 10%, transparent), transparent 60%),
+    var(--paper);
+  padding: 13px 13px 13px 20px;
   text-align: left;
-  transition: background-position var(--motion-medium) var(--ease-out);
+  transition:
+    background-color var(--motion-medium) ease,
+    transform var(--motion-fast) var(--ease-out);
 }
 
-.section-title {
+.section-toggle:active {
+  transform: translateX(2px);
+}
+
+.section-copy {
+  min-width: 0;
+}
+
+.section-kicker {
   display: block;
   color: var(--teal-dark);
-  font-size: 0.9rem;
-  font-weight: 850;
+  font-size: 0.68rem;
+  font-weight: 900;
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
+.section-title {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 1.03rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1.12;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .section-meta {
   display: block;
-  margin-top: 2px;
+  margin-top: 5px;
+  overflow: hidden;
   color: var(--muted);
   font-size: 0.78rem;
+  font-weight: 560;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.section-badge {
+  display: grid;
+  min-width: 46px;
+  min-height: 26px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--section-accent) 34%, var(--line));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--section-accent) 12%, white);
+  color: var(--teal-dark);
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .chapter-list {
@@ -324,19 +397,20 @@ h1 {
   max-height: 1700px;
   opacity: 1;
   transform: translateY(0);
+  border-top: 1px solid var(--line);
 }
 
 .chapter-row {
   display: grid;
   width: 100%;
-  grid-template-columns: 42px 1fr auto;
-  gap: 12px;
+  grid-template-columns: 38px 1fr auto;
+  gap: 10px;
   align-items: center;
-  min-height: 62px;
+  min-height: 60px;
   border: 0;
   border-bottom: 1px solid var(--line);
   background: #fff;
-  padding: 10px 14px 10px 10px;
+  padding: 10px 13px 10px 14px;
   color: inherit;
   text-align: left;
   animation: row-slide var(--motion-medium) var(--ease-out) both;
@@ -353,7 +427,7 @@ h1 {
 
 .chapter-row.is-selected {
   background:
-    linear-gradient(90deg, rgba(0, 184, 196, 0.22), rgba(255, 255, 255, 0.96));
+    linear-gradient(90deg, color-mix(in srgb, var(--section-accent) 22%, white), rgba(255, 255, 255, 0.96));
 }
 
 .chapter-row:active {
@@ -362,11 +436,11 @@ h1 {
 
 .chapter-number {
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   place-items: center;
-  border-radius: 2px;
-  background: var(--teal);
+  border-radius: 5px;
+  background: var(--section-accent);
   color: #fff;
   font-size: 0.78rem;
   font-weight: 850;
@@ -381,8 +455,8 @@ h1 {
 
 .chapter-name {
   display: block;
-  font-size: 0.95rem;
-  font-weight: 780;
+  font-size: 0.92rem;
+  font-weight: 800;
   line-height: 1.25;
 }
 
