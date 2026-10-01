@@ -32,6 +32,8 @@ jobs:
           else
             npx playwright install --with-deps chromium
           fi
+      - name: Verify live AppDeploy and GitHub extraction
+        run: node scan-form-assistant/tests/live-extraction.mjs
       - name: Validate PDF engine
         working-directory: scan-form-assistant
         run: npx tsx tests/pdf-engine.mjs
