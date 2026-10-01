@@ -15,7 +15,7 @@ try {
     await page.getByRole('button',{name:'Identify required information',exact:true}).click();
     await page.waitForFunction(()=>!document.body.textContent.includes('Extracting…'),{},{timeout:120000});
     console.log('RESULT',await page.locator('[role="status"]').allTextContents());
-    const incident=page.getByLabel('Incident history',{exact:true});
+    const incident=page.getByLabel('Account of incident',{exact:true});
     if(await incident.count()) assert.match(await incident.inputValue(),/scald|soup|hand/i);
     else throw Error('Extraction did not open Information: '+await page.locator('[role="status"]').allTextContents());
     await page.getByRole('button',{name:'Upload PDFs',exact:true}).click();
