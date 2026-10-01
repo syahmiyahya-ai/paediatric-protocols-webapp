@@ -6,6 +6,7 @@ const page=await context.newPage();
 page.setDefaultTimeout(60000);
 try {
   await page.goto('https://syahmiyahya-ai.github.io/paediatric-protocols-webapp/scan-form-assistant/',{waitUntil:'networkidle'});
+  console.log('Page title:',await page.title(),'Headings:',await page.locator('h1,h2').allTextContents(),'Buttons:',await page.getByRole('button').allTextContents());
   await page.locator('aside').getByRole('button',{name:/Household/}).click();
   await page.getByLabel('This questionnaire will use dummy information only.').check();
   await page.getByRole('button',{name:'Create online questionnaire',exact:true}).click();
