@@ -36,7 +36,8 @@ try {
   const jkmChooser=await jkmChooserPromise;
   await jkmChooser.setFiles({name:'fixture-jkm.pdf',mimeType:'application/pdf',buffer:Buffer.from(await jkm.save())});
   const canvas=page.getByLabel('JKM referral page 1',{exact:true});
-  await canvas.waitFor();await page.waitForFunction(()=>document.querySelector('canvas')?.getAttribute('data-ready')==='true');
+  await canvas.waitFor();await page.waitForFunction(()=>document.querySelector('canvas[aria-label="JKM referral page 1"]')?.getAttribute('data-ready')==='true');
+  await canvas.scrollIntoViewIfNeeded();
   const rect=await canvas.boundingBox();assert.ok(rect);
   await page.mouse.move(rect.x+rect.width*.14,rect.y+rect.height*.14);
   await page.mouse.down();await page.mouse.move(rect.x+rect.width*.57,rect.y+rect.height*.18);await page.mouse.up();
