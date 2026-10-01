@@ -10,6 +10,7 @@ export default function PdfCanvas({template,pageIndex,onPlace}:{template:PdfTemp
   const [viewport,setViewport]=useState<Viewport|null>(null);
   const [message,setMessage]=useState('');
   useEffect(()=>{
+    setViewport(null);
     let cancelled=false;
     const task=getDocument({data:template.bytes.slice()});
     task.promise.then(async doc=>{
@@ -30,6 +31,7 @@ export default function PdfCanvas({template,pageIndex,onPlace}:{template:PdfTemp
   }
   return <div>
     {message && <p role="alert">{message}</p>}
+    {!viewport&&!message&&<p role="status">Rendering PDF page… wait before placing fields.</p>}
     <div className="pdf-sheet" style={{position:'relative',touchAction:onPlace?'none':'auto'}}
       onPointerDown={e=>{if(!onPlace||!viewport)return;e.currentTarget.setPointerCapture(e.pointerId);start.current=point(e);}}
       onPointerUp={e=>{if(!start.current||!onPlace)return;const end=point(e),begin=start.current;start.current=null;
@@ -37,7 +39,7 @@ export default function PdfCanvas({template,pageIndex,onPlace}:{template:PdfTemp
         if(width<10||height<10)return;
         onPlace({page:pageIndex,x:Math.min(begin[0],end[0]),y:Math.min(begin[1],end[1]),width,height});}}
       onPointerCancel={()=>{start.current=null;}}>
-      <canvas ref={canvas} aria-label={template.name+' page '+(pageIndex+1)} style={{width:'100%',height:'auto',display:'block'}}/>
+      <canvas ref={canvas} data-ready={viewport?'true':'false'} aria-label={template.name+' page '+(pageIndex+1)} style={{width:'100%',height:'auto',display:'block'}}/>
       {viewport && template.placements.filter(p=>p.page===pageIndex).map(p=>{
         const r=[...viewport.convertToViewportPoint(p.x,p.y),...viewport.convertToViewportPoint(p.x+p.width,p.y+p.height)];
         return <div key={p.id} style={{position:'absolute',pointerEvents:'none',border:'1px solid #147d64',background:'#147d6418',

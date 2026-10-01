@@ -16,7 +16,7 @@ try {
   await page.locator('aside').getByRole('button',{name:/Information/}).click();
   assert.equal(await page.getByLabel('Child name',{exact:true}).inputValue(),'Fictional Child');
   assert.equal(await page.getByLabel('Date of birth',{exact:true}).inputValue(),'2020-02-29');
-  console.log('PASS: Information fields and refresh-safe draft.');
+  console.log('PASS: Information fields, IC-derived DOB and sex, and refresh-safe draft.');
   await page.locator('aside').getByRole('button',{name:/PDF templates/}).click();
   const borang=await PDFDocument.create();for(let i=0;i<4;i++)borang.addPage([595.28,841.89]);
   borang.getForm().createTextField('child_name').addToPage(borang.getPage(0),{x:80,y:700,width:250,height:25});
@@ -26,7 +26,7 @@ try {
   const jkm=await PDFDocument.create();jkm.addPage([595.28,841.89]);jkm.addPage([595.28,841.89]);
   await page.getByLabel('Upload JKM referral',{exact:true}).setInputFiles({name:'fixture-jkm.pdf',mimeType:'application/pdf',buffer:Buffer.from(await jkm.save())});
   const canvas=page.getByLabel('JKM referral page 1',{exact:true});
-  await canvas.waitFor();await page.waitForFunction(()=>document.querySelector('canvas')?.width>0);
+  await canvas.waitFor();await page.waitForFunction(()=>document.querySelector('canvas')?.getAttribute('data-ready')==='true');
   const rect=await canvas.boundingBox();assert.ok(rect);
   await page.mouse.move(rect.x+rect.width*.14,rect.y+rect.height*.14);
   await page.mouse.down();await page.mouse.move(rect.x+rect.width*.57,rect.y+rect.height*.18);await page.mouse.up();
