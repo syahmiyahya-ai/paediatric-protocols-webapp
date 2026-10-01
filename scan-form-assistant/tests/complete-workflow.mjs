@@ -49,7 +49,9 @@ try {
   }
   console.log('PASS: Acrobat and scanned templates, manual placement, two editable PDFs and original page counts.');
   await page.waitForFunction(()=>Array.from(document.querySelectorAll('.pdf-sheet canvas')).every(c=>c.width>500));
-  const image=await page.locator('.pdf-sheet').first().screenshot();console.log('SCREENSHOT:'+image.toString('base64'));
+  const completedCanvas=page.getByLabel('Borang 9 completed preview page 1',{exact:true});
+  await page.waitForFunction(()=>document.querySelector('canvas[aria-label="Borang 9 completed preview page 1"]')?.getAttribute('data-ready')==='true');
+  const image=await completedCanvas.screenshot();console.log('SCREENSHOT:'+image.toString('base64'));
   const cloud=await page.evaluate(async()=>{
     const frame=document.querySelector('iframe[title="SCAN backend transport"]');
     if(!frame)return null;
