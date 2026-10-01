@@ -6,7 +6,7 @@ const page=await context.newPage();
 page.setDefaultTimeout(60000);
 try {
   await page.goto('https://syahmiyahya-ai.github.io/paediatric-protocols-webapp/scan-form-assistant/',{waitUntil:'networkidle'});
-  await page.getByRole('button',{name:'Household',exact:true}).click();
+  await page.locator('aside').getByRole('button',{name:/Household/}).click();
   await page.getByLabel('This questionnaire will use dummy information only.').check();
   await page.getByRole('button',{name:'Create online questionnaire',exact:true}).click();
   const linkInput=page.getByLabel('Household link', {exact:true});
@@ -32,7 +32,7 @@ try {
   await page.getByRole('heading',{name:'Doctor review',exact:true}).waitFor();
   await page.getByText('Fictional Child',{exact:true}).waitFor();
   console.log('PASS: GitHub-to-backend bridge, online creation, household-only mobile submission, persistence and doctor retrieval.');
-  await page.getByRole('button',{name:'Household',exact:true}).click();
+  await page.locator('aside').getByRole('button',{name:/Household/}).click();
   page.once('dialog',d=>d.accept());
   await page.getByRole('button',{name:'Close link and delete answers',exact:true}).click();
   await page.getByText('Link closed and online answers deleted. Imported doctor draft remains.',{exact:true}).waitFor();
