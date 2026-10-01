@@ -7,20 +7,25 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: scan-verification
+  cancel-in-progress: true
 jobs:
   smoke:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install browser test runtime
+      - name: Install test packages
         working-directory: scan-form-assistant
-        run: |
-          npm install --no-save playwright tsx
-          npx playwright install --with-deps chromium
+        run: npm install --no-audit --no-fund --no-save playwright tsx
+      - name: Install Chromium
+        working-directory: scan-form-assistant
+        run: npx playwright install --with-deps chromium
       - name: Validate PDF engine
         working-directory: scan-form-assistant
         run: npx tsx tests/pdf-engine.mjs
