@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
-const browser=await chromium.launch({headless:true});
+const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
 const context=await browser.newContext();
 const page=await context.newPage();
 page.setDefaultTimeout(60000);

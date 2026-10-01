@@ -23,9 +23,15 @@ jobs:
       - name: Install test packages
         working-directory: scan-form-assistant
         run: npm install --no-audit --no-fund --no-save playwright tsx
-      - name: Install Chromium
+      - name: Prepare browser
         working-directory: scan-form-assistant
-        run: npx playwright install --with-deps chromium
+        run: |
+          if command -v google-chrome >/dev/null 2>&1; then
+            echo 'PLAYWRIGHT_CHANNEL=chrome' >> "$GITHUB_ENV"
+            google-chrome --version
+          else
+            npx playwright install --with-deps chromium
+          fi
       - name: Validate PDF engine
         working-directory: scan-form-assistant
         run: npx tsx tests/pdf-engine.mjs

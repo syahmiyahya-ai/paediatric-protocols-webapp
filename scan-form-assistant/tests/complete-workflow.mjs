@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { PDFDocument } from 'pdf-lib';
-const browser=await chromium.launch({headless:true});
+const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||undefined});
 const context=await browser.newContext();
 const page=await context.newPage();page.setDefaultTimeout(60000);
 const base='https://syahmiyahya-ai.github.io/paediatric-protocols-webapp/scan-form-assistant/';
