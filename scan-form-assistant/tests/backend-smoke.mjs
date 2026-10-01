@@ -8,6 +8,8 @@ async function request(path, body) {
   return {status:r.status,data};
 }
 const pre=await fetch(base+'/api/household-links',{method:'OPTIONS',headers:{Origin:origin,'Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'content-type'}});
+console.log('Preflight status:',pre.status,'headers:',Object.fromEntries(pre.headers));
+if(!pre.ok) console.log('Preflight public error:',(await pre.text()).slice(0,1000));
 assert.ok(pre.ok,'CORS preflight must succeed');
 assert.equal(pre.headers.get('access-control-allow-origin'),origin);
 let link;
