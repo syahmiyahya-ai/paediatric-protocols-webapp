@@ -15,4 +15,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node scan-form-assistant/tests/backend-smoke.mjs
+      - name: Install browser test runtime
+        working-directory: scan-form-assistant
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Test GitHub household workflow
+        run: node scan-form-assistant/tests/backend-smoke.mjs
