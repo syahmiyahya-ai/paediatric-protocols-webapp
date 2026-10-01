@@ -143,7 +143,7 @@ export async function templateStore(action: 'read'|'write'|'delete', template?: 
     const transaction=database.transaction('templates',action==='read'?'readonly':'readwrite');
     const store=transaction.objectStore('templates');
     const request=action==='read'?store.getAll():action==='write'?store.put(template!):store.delete(name!);
-    transaction.oncomplete=()=>{resolve(action==='read'?request.result:[]);database.close();};
+    transaction.oncomplete=()=>{resolve(action==='read'?request.result as PdfTemplate[]:[]);database.close();};
     transaction.onerror=()=>{reject(transaction.error);database.close();};
   });
 }
