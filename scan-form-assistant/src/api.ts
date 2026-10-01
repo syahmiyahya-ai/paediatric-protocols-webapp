@@ -12,6 +12,7 @@ function connect() {
     const timer=window.setTimeout(()=>{ready=null;frame?.remove();frame=null;reject(new Error('Backend connection timed out. Reload and retry.'));},30000);
     window.addEventListener('message',event=>{
       if(event.origin!==bridgeOrigin || event.source!==frame?.contentWindow) return;
+      if(event.data?.type==='scan-signed-out')window.dispatchEvent(new Event('scan-signed-out'));
       if(event.data?.type==='scan-session-changed')window.dispatchEvent(new Event('scan-session-changed'));
       if(event.data?.type==='scan-backend-ready'){window.clearTimeout(timer);resolve();}
       if(event.data?.type==='scan-backend-response'){

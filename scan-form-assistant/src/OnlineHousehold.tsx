@@ -15,7 +15,7 @@ export function OnlineHousehold({ fields }: { fields: string[][] }) {
   const id = params.get('household') || '';
   const token = params.get('token') || '';
   const endpoint=params.get('backend');
-  if(endpoint) { try { const u=new URL(endpoint); if(u.protocol==='https:' && !u.username && !u.password && !u.search && !u.hash) localStorage.setItem('scan-backend-url',endpoint); } catch { /* Invalid backend remains disconnected. */ } }
+  if(endpoint === 'https://scan-form-assistant-t0kucv.v2.appdeploy.ai') localStorage.setItem('scan-backend-url',endpoint);
   const [answers, setAnswers] = useState<Record<string,string>>({});
   const [state, setState] = useState('loading');
   const [message, setMessage] = useState('');

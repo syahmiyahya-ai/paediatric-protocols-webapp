@@ -75,8 +75,19 @@ export default function ScanApp() {
     setStatus('Draft');
     setSentLog('');
   };
+  useEffect(() => {
+    const signedOut=()=>{
+      rememberPortal(null);setPortal(null);sessionStorage.removeItem('scan-case-draft');
+      setNotes('');setValues({});setSources({});setHousehold({});setResolved({});
+      setCaseId(crypto.randomUUID());setReviewed(false);setStatus('Draft');setSentLog('');setTab('History');
+      setMessage('Signed out. Case data has been cleared from this tab; saved account cases remain private.');
+    };
+    window.addEventListener('scan-signed-out',signedOut);
+    return ()=>window.removeEventListener('scan-signed-out',signedOut);
+  },[]);
   const setValue = (key: string, value: string) => {
     setValues(v => ({ ...v, [key]: value }));
+    setResolved(r => { const next={...r}; delete next[key]; return next; });
     setSources(s => ({ ...s, [key]: 'Doctor entry' }));
     invalidate();
   };
@@ -362,6 +373,7 @@ export default function ScanApp() {
             <div className="field-grid">
               <IdentityFields values={values} change={(next,key) => {
                 setValues(next);
+                setResolved(r => Object.fromEntries(Object.entries(r).filter(([k]) => !identityKeys.includes(k))));
                 setSources(s => ({...s, ...Object.fromEntries(identityKeys.map(k=>[k, key==='child_id' && next.child_id_type !== 'Passport' ? 'Derived from IC - confirm' : 'Doctor entry']))}));
                 invalidate();
               }} />
