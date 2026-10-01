@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { api } from './api';
 import { backendUrl } from './BackendSettings';
 import IdentityFields, { identityKeys } from './IdentityFields';
-export type Portal = { id: string; token: string; doctorToken: string; expiresAt: number; caseId: string };
+export type Portal = { id: string; token: string; doctorToken: string; expiresAt: number; caseId: string; secure?: boolean };
 export function readPortal(): Portal | null {
   try { return JSON.parse(sessionStorage.getItem('scan-online-portal') || 'null'); } catch { return null; }
 }
@@ -73,7 +73,7 @@ export function OnlineControls({ portal, setPortal, caseId, receive }: { portal:
     catch { setMessage('Deletion failed. Retry before leaving the session.'); }
     finally { setBusy(false); }
   }
-  return <div><h3>Online household questionnaire</h3><p>Share the link below. The household answers directly online. Keep this doctor tab open; its access key is retained only in this tab session.</p>
+  return <div><h3>Online household questionnaire</h3><p>Share only the household link below. The household answers directly online. For signed-in doctors, the questionnaire belongs to that account. Save the case to your account to resume it on another device.</p>
     {!portal ? <><label className="check"><input type="checkbox" checked={dummy} onChange={e => setDummy(e.target.checked)}/>This questionnaire will use dummy information only.</label><button className="primary" disabled={busy} onClick={create}>Create online questionnaire</button></> : <><label>Household link<input readOnly value={link} onFocus={e => e.target.select()}/></label><p>Expires: {new Date(portal.expiresAt).toLocaleString()}</p><div className="actions"><button onClick={async () => { try { await navigator.clipboard.writeText(link); setMessage('Link copied.'); } catch { setMessage('Select the link above and copy it manually.'); } }}>Copy household link</button><a href={link} target="_blank" rel="noopener noreferrer">Open household form</a><button disabled={busy} onClick={check}>Check for answers</button><button disabled={busy} onClick={revoke}>Close link and delete answers</button></div></>}
     {message && <p role="status" className="notice">{message}</p>}<hr/>
   </div>;

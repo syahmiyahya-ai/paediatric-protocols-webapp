@@ -1,14 +1,15 @@
 name: Check SCAN backend
 on:
-  push:
-    paths:
-      - 'scan-form-assistant/tests/backend-smoke.mjs'
-      - '.github/workflows/scan-backend-check.yml'
+  workflow_run:
+    workflows: [Publish protocols and SCAN]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   smoke:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,7 +19,12 @@ jobs:
       - name: Install browser test runtime
         working-directory: scan-form-assistant
         run: |
-          npm install --no-save playwright
+          npm install --no-save playwright tsx
           npx playwright install --with-deps chromium
+      - name: Validate PDF engine
+        working-directory: scan-form-assistant
+        run: npx tsx tests/pdf-engine.mjs
       - name: Test GitHub household workflow
         run: node scan-form-assistant/tests/backend-smoke.mjs
+      - name: Test Information and both PDF exports
+        run: node scan-form-assistant/tests/complete-workflow.mjs

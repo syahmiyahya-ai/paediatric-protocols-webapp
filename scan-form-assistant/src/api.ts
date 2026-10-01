@@ -12,6 +12,7 @@ function connect() {
     const timer=window.setTimeout(()=>{ready=null;frame?.remove();frame=null;reject(new Error('Backend connection timed out. Reload and retry.'));},30000);
     window.addEventListener('message',event=>{
       if(event.origin!==bridgeOrigin || event.source!==frame?.contentWindow) return;
+      if(event.data?.type==='scan-session-changed')window.dispatchEvent(new Event('scan-session-changed'));
       if(event.data?.type==='scan-backend-ready'){window.clearTimeout(timer);resolve();}
       if(event.data?.type==='scan-backend-response'){
         const p=pending.get(event.data.id);if(!p)return;
@@ -43,3 +44,11 @@ async function post(path:string,body:unknown):Promise<{data:any}> {
   return {data};
 }
 export const api={post};
+
+export function mountAuth(container:HTMLElement) {
+  void connect().then(()=>{
+    if(!frame)return;
+    frame.title='Doctor account';frame.style.cssText='width:100%;height:150px;border:1px solid #dce4e0;';
+    container.appendChild(frame);
+  }).catch(()=>{container.textContent='Unable to connect. Reload and retry.';});
+}

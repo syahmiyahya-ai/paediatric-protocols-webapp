@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from './api';
-import { PDFDocument, PDFTextField, PDFCheckBox } from 'pdf-lib';
+import { FIELDS } from './fields';
+import PdfWorkspace from './PdfWorkspace';
+import CaseStorage, { readDraft, type CaseDraft } from './CaseStorage';
 import {
   ClipboardList,
   ShieldCheck,
@@ -14,58 +16,9 @@ import BackendSettings from './BackendSettings';
 import IdentityFields, { identityKeys } from './IdentityFields';
 import { OnlineHousehold, OnlineControls, readPortal, rememberPortal, type Portal } from './OnlineHousehold';
 
-const FIELDS: string[][] = [
-  ['child_name', 'Child name', 'household'],
-  ['child_id_type', 'Identification type', 'household'],
-  ['child_id', 'IC / passport / document number', 'household'],
-  ['child_gender', 'Gender / sex', 'household'],
-  ['child_dob', 'Date of birth', 'household'],
-  ['child_age', 'Age', 'household'],
-  ['guardian_name', 'Guardian name', 'household'],
-  ['guardian_relationship', 'Relationship to child', 'household'],
-  ['guardian_phone', 'Phone number', 'household'],
-  ['contact_address', 'Current contact address', 'household'],
-  ['mother_name', 'Mother name', 'household'],
-  ['father_name', 'Father name', 'household'],
-  ['respondent', 'Person providing this account', 'household'],
-  ['incident_date', 'Incident date (confirm actual date)', 'household'],
-  ['incident_time', 'Incident time', 'household'],
-  ['incident_location', 'Incident location', 'household'],
-  ['incident_history', 'Account of incident', 'household'],
-  [
-    'hazard_access',
-    'Where was the item placed and how did the child reach it?',
-    'household',
-  ],
-  ['witnesses', 'Who was present?', 'household'],
-  ['first_aid', 'First aid and duration', 'household'],
-  ['clinic_care', 'Clinic attended and care reported', 'household'],
-  [
-    'clinical_findings',
-    'Clinical examination / burn site, depth and extent',
-    'doctor',
-  ],
-  ['investigations', 'Investigations', 'doctor'],
-  ['treatment', 'Treatment given', 'doctor'],
-  ['safeguarding_concern', 'Documented safeguarding concern', 'doctor'],
-  ['discussions', 'Discussions and notifications actually performed', 'doctor'],
-  ['disposition', 'Admission / discharge and follow-up', 'doctor'],
-  ['doctor_name', 'Reporting doctor name', 'doctor'],
-  ['doctor_id', 'Reporting doctor identification', 'doctor'],
-  ['hospital', 'Hospital / workplace', 'doctor'],
-  ['office_address', 'Office address', 'doctor'],
-  ['report_date', 'Report date', 'doctor'],
-];
 type Values = Record<string, string>;
-type Template = {
-  name: string;
-  bytes: Uint8Array;
-  fields: { name: string; kind: string }[];
-  mapping: Values;
-};
 const sample =
   'DUMMY CASE. Alleged scald injury involving the hand after the child dipped his hand into hot Maggi soup at approximately 9.00 PM yesterday. Father reportedly witnessed the incident and attempted to stop the child unsuccessfully. Father immediately removed the hand and cooled it with running water. The child attended a clinic and was brought to A&E today for further evaluation. Possible environmental safety concern documented; intention unclear.';
-const paths = ['resources/borang9.pdf', 'resources/jkm.pdf'];
 const escapeHtml = (s: string) =>
   s.replace(
     /[&<>"']/g,
@@ -83,25 +36,40 @@ function download(data: BlobPart, name: string, type: string) {
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 export default function ScanApp() {
+  const [initial] = useState(() => readDraft());
   const [tab, setTab] = useState('History');
-  const [notes, setNotes] = useState('');
-  const [values, setValues] = useState<Values>({});
-  const [sources, setSources] = useState<Values>({});
-  const [household, setHousehold] = useState<Values>({});
-  const [resolved, setResolved] = useState<Values>({});
-  const [dummy, setDummy] = useState(false);
+  const [notes, setNotes] = useState(initial.notes || '');
+  const [values, setValues] = useState<Values>(initial.values || {});
+  const [sources, setSources] = useState<Values>(initial.sources || {});
+  const [household, setHousehold] = useState<Values>(initial.household || {});
+  const [resolved, setResolved] = useState<Values>(initial.resolved || {});
+  const [dummy, setDummy] = useState(initial.dummy === true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [reviewed, setReviewed] = useState(false);
   const [status, setStatus] = useState('Draft');
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [preview, setPreview] = useState('');
   const [recipient, setRecipient] = useState('');
   const [method, setMethod] = useState('');
   const [sentAt, setSentAt] = useState('');
   const [sentLog, setSentLog] = useState('');
   const [portal, setPortal] = useState<Portal | null>(() => readPortal());
-  const [caseId, setCaseId] = useState(() => readPortal()?.caseId || crypto.randomUUID());
+  const [caseId, setCaseId] = useState(() => initial.caseId || readPortal()?.caseId || crypto.randomUUID());
+  const draft: CaseDraft = { version:2, caseId, notes, values, sources, household, resolved, portal, dummy, sentLog };
+  useEffect(() => {
+    if (new URLSearchParams(window.location.hash.slice(1)).has('household')) return;
+    try { sessionStorage.setItem('scan-case-draft', JSON.stringify(draft)); } catch { /* Backups remain available if storage is full. */ }
+  }, [caseId,notes,values,sources,household,resolved,portal,dummy,sentLog]);
+  async function restoreCase(next:CaseDraft) {
+    if (!window.confirm('Replace the case in this tab? Download a backup first if needed.')) throw new Error('Restore cancelled.');
+    if (portal && (next.portal as Portal|null)?.id !== portal.id) {
+      await api.post('/api/household-delete',{id:portal.id,doctorToken:portal.doctorToken});
+    }
+    const nextPortal=next.portal as Portal|null;
+    setPortal(nextPortal);rememberPortal(nextPortal);
+    setCaseId(next.caseId);setNotes(next.notes);setValues(next.values);setSources(next.sources);
+    setHousehold(next.household);setResolved(next.resolved);setDummy(next.dummy);setSentLog(next.sentLog);
+    setReviewed(false);setStatus('Draft');setTab('Information');
+  }
   const invalidate = () => {
     setReviewed(false);
     setStatus('Draft');
@@ -218,113 +186,6 @@ export default function ScanApp() {
       );
     }
   }
-  async function loadTemplate(bytes: ArrayBuffer, name: string) {
-    const pdf = await PDFDocument.load(bytes);
-    const fields = pdf
-      .getForm()
-      .getFields()
-      .map(f => ({
-        name: f.getName(),
-        kind:
-          f instanceof PDFTextField
-            ? 'text'
-            : f instanceof PDFCheckBox
-              ? 'checkbox'
-              : 'unsupported',
-      }));
-    if (!fields.length) throw new Error('This PDF has no fillable fields.');
-    const mapping: Values = {};
-    const aliases: Values = {
-      'Nama Ibu': 'mother_name',
-      'Nama bapa': 'father_name',
-      'Nama Penjaga': 'guardian_name',
-      'No Tel': 'guardian_phone',
-      'Alamat terkini': 'contact_address',
-      Nama_pegawai: 'doctor_name',
-      'Pengenalan No': 'doctor_id',
-    };
-    fields.forEach(f => {
-      mapping[f.name] = FIELDS.some(([k]) => k === f.name)
-        ? f.name
-        : aliases[f.name] || '';
-    });
-    setTemplates(ts => [
-      ...ts.filter(t => t.name !== name),
-      { name, bytes: new Uint8Array(bytes), fields, mapping },
-    ]);
-    invalidate();
-    setMessage(
-      name +
-        ': ' +
-        fields.length +
-        ' fields found. Check every proposed mapping.'
-    );
-  }
-  async function loadResources() {
-    setBusy(true);
-    try {
-      for (let i = 0; i < paths.length; i++) {
-        const response = await fetch(
-          new URL('./' + paths[i], document.baseURI)
-        );
-        if (!response.ok)
-          throw new Error(
-            'Add both PDFs in AppDeploy Resources or choose them below.'
-          );
-        await loadTemplate(
-          await response.arrayBuffer(),
-          i === 0 ? 'Borang 9' : 'JKM referral'
-        );
-      }
-    } catch (e) {
-      setMessage(
-        e instanceof Error ? e.message : 'Unable to load PDF templates.'
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function exportPdf(t: Template) {
-    if (!reviewed || conflicts.length) {
-      setMessage('Complete doctor review before PDF export.');
-      return;
-    }
-    try {
-      const pdf = await PDFDocument.load(t.bytes);
-      const form = pdf.getForm();
-      for (const f of t.fields) {
-        const key = t.mapping[f.name];
-        if (!key) continue;
-        const field = form.getField(f.name);
-        if (field instanceof PDFTextField) field.setText(values[key] || '');
-        if (field instanceof PDFCheckBox) {
-          if (key === '__checked') field.check();
-          else if (key === '__unchecked') field.uncheck();
-        }
-      }
-      const bytes = await pdf.save();
-      if (preview) URL.revokeObjectURL(preview);
-      setPreview(
-        URL.createObjectURL(
-          new Blob([bytes as BlobPart], { type: 'application/pdf' })
-        )
-      );
-      download(
-        bytes as BlobPart,
-        t.name.replace(/ /g, '_') + '_draft.pdf',
-        'application/pdf'
-      );
-      setStatus('Exported');
-      setMessage(
-        'PDF exported. Check all pages for clipping and correct ticks. Signatures and reporting remain separate.'
-      );
-    } catch (e) {
-      setMessage(
-        'PDF export failed: ' +
-          (e instanceof Error ? e.message : 'unsupported field or font')
-      );
-    }
-  }
   async function clear() {
     if (!window.confirm('Clear this case and all answers from this session?'))
       return;
@@ -333,14 +194,11 @@ export default function ScanApp() {
       catch { setMessage('Could not delete online questionnaire. Retry Clear case.'); return; }
       rememberPortal(null); setPortal(null);
     }
-    if (preview) URL.revokeObjectURL(preview);
     setNotes('');
     setValues({});
     setSources({});
     setHousehold({});
     setResolved({});
-    setPreview('');
-    setTemplates([]);
     setCaseId(crypto.randomUUID());
     setReviewed(false);
     setStatus('Draft');
@@ -389,6 +247,7 @@ export default function ScanApp() {
         </div>
       </aside>
       <main><BackendSettings/>
+        <CaseStorage draft={draft} restore={restoreCase}/>
         <header>
           <div>
             <div className="eyebrow">CHILD PROTECTION · BORANG 9 + JKM</div>
@@ -415,8 +274,7 @@ export default function ScanApp() {
           <ShieldCheck size={18} />
           <span>
             Fictional information only. AI extraction sends notes to the hosted
-            service. Case answers are held in this browser session; refreshing
-            clears them. Online household answers are stored until deletion; links expire after 24 hours. This pilot has no clinical approval.
+            service. Case answers stay in this tab session, including after refresh. Online answers and account saves expire after 24 hours. This pilot has no clinical approval.
           </span>
         </div>
         {message && (
@@ -514,6 +372,7 @@ export default function ScanApp() {
                     {role} · {sources[key] || 'Not supplied'}
                   </span>
                   <textarea
+                    aria-label={label}
                     value={values[key] || ''}
                     onChange={e => setValue(key, e.target.value)}
                   />
@@ -657,7 +516,7 @@ export default function ScanApp() {
                   download(
                     JSON.stringify(
                       {
-                        version: 1,
+                        version: 2,
                         caseId,
                         notes,
                         values,
@@ -666,6 +525,7 @@ export default function ScanApp() {
                         resolved,
                         status,
                         sentLog,
+                        dummy,
                       },
                       null,
                       2
@@ -680,123 +540,9 @@ export default function ScanApp() {
             </div>
           </section>
         )}
-        {tab === 'PDF templates' && (
+        {tab === 'PDF templates' && (<div>
+          <PdfWorkspace values={values} reviewed={reviewed} conflicts={conflicts.length} invalidate={invalidate} exported={()=>setStatus('Exported')}/>
           <section className="card">
-            <div className="card-head">
-              <FileText />
-              <h2>Acrobat field mapping</h2>
-            </div>
-            <p>
-              Load your resource PDFs or select a blank fillable PDF. Map each
-              field to the shared record; leave signature fields unmapped.
-              Automatic suggestions need checking.
-            </p>
-            <div className="actions">
-              <button onClick={loadResources} disabled={busy}>
-                Load Borang 9 + JKM resources
-              </button>
-              <label className="upload">
-                Choose blank fillable PDF
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={async e => {
-                    const f = e.target.files?.[0];
-                    if (f)
-                      try {
-                        await loadTemplate(await f.arrayBuffer(), f.name);
-                      } catch (err) {
-                        setMessage(
-                          err instanceof Error ? err.message : 'Invalid PDF'
-                        );
-                      }
-                  }}
-                />
-              </label>
-            </div>
-            {!templates.length && (
-              <div className="empty">
-                <FileText size={32} />
-                <h3>No PDF templates loaded</h3>
-                <p>
-                  Add your Acrobat PDFs to begin mapping. The original PDF
-                  layout is preserved.
-                </p>
-              </div>
-            )}
-            {templates.map(t => (
-              <div className="template" key={t.name}>
-                <h3>
-                  {t.name} <small>{t.fields.length} fields</small>
-                </h3>
-                <div className="mapping">
-                  {t.fields.map(f => (
-                    <label key={f.name}>
-                      <span>
-                        {f.name}
-                        <small>{f.kind}</small>
-                      </span>
-                      <select
-                        aria-label={'Map ' + f.name}
-                        value={t.mapping[f.name] || ''}
-                        onChange={e => {
-                          setTemplates(ts =>
-                            ts.map(x =>
-                              x.name === t.name
-                                ? {
-                                    ...x,
-                                    mapping: {
-                                      ...x.mapping,
-                                      [f.name]: e.target.value,
-                                    },
-                                  }
-                                : x
-                            )
-                          );
-                          invalidate();
-                        }}
-                      >
-                        <option value="">
-                          Leave blank / signature / manual
-                        </option>
-                        {f.kind === 'checkbox' ? (
-                          <>
-                            <option value="__checked">Checked</option>
-                            <option value="__unchecked">Unchecked</option>
-                          </>
-                        ) : (
-                          FIELDS.map(([k, label]) => (
-                            <option key={k} value={k}>
-                              {label}
-                            </option>
-                          ))
-                        )}
-                      </select>
-                    </label>
-                  ))}
-                </div>
-                <button
-                  className="primary"
-                  disabled={!reviewed || !!conflicts.length}
-                  onClick={() => exportPdf(t)}
-                >
-                  Preview and download {t.name}
-                </button>
-              </div>
-            ))}
-            {!reviewed && (
-              <p className="callout">
-                Complete or repeat Doctor review after changing the data or
-                mapping to enable export.
-              </p>
-            )}
-            {preview && (
-              <iframe
-                title="Completed PDF preview"
-                src={preview}
-                className="pdf-preview"
-              />
-            )}
             <hr />
             <h2>Record actual delivery</h2>
             <p>
@@ -847,7 +593,7 @@ export default function ScanApp() {
                 {sentLog}
               </p>
             )}
-          </section>
+          </section></div>
         )}
         <footer>SCAN case workflow · Draft → Reviewed → Exported → Sent</footer>
       </main>
