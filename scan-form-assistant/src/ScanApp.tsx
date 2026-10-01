@@ -1,0 +1,856 @@
+import { useState } from 'react';
+import { api } from './api';
+import { PDFDocument, PDFTextField, PDFCheckBox } from 'pdf-lib';
+import {
+  ClipboardList,
+  ShieldCheck,
+  FileText,
+  ArrowRight,
+  Download,
+  CheckCircle2,
+} from 'lucide-react';
+import './scan.css';
+import BackendSettings from './BackendSettings';
+import IdentityFields, { identityKeys } from './IdentityFields';
+import { OnlineHousehold, OnlineControls, readPortal, rememberPortal, type Portal } from './OnlineHousehold';
+
+const FIELDS: string[][] = [
+  ['child_name', 'Child name', 'household'],
+  ['child_id_type', 'Identification type', 'household'],
+  ['child_id', 'IC / passport / document number', 'household'],
+  ['child_gender', 'Gender / sex', 'household'],
+  ['child_dob', 'Date of birth', 'household'],
+  ['child_age', 'Age', 'household'],
+  ['guardian_name', 'Guardian name', 'household'],
+  ['guardian_relationship', 'Relationship to child', 'household'],
+  ['guardian_phone', 'Phone number', 'household'],
+  ['contact_address', 'Current contact address', 'household'],
+  ['mother_name', 'Mother name', 'household'],
+  ['father_name', 'Father name', 'household'],
+  ['respondent', 'Person providing this account', 'household'],
+  ['incident_date', 'Incident date (confirm actual date)', 'household'],
+  ['incident_time', 'Incident time', 'household'],
+  ['incident_location', 'Incident location', 'household'],
+  ['incident_history', 'Account of incident', 'household'],
+  [
+    'hazard_access',
+    'Where was the item placed and how did the child reach it?',
+    'household',
+  ],
+  ['witnesses', 'Who was present?', 'household'],
+  ['first_aid', 'First aid and duration', 'household'],
+  ['clinic_care', 'Clinic attended and care reported', 'household'],
+  [
+    'clinical_findings',
+    'Clinical examination / burn site, depth and extent',
+    'doctor',
+  ],
+  ['investigations', 'Investigations', 'doctor'],
+  ['treatment', 'Treatment given', 'doctor'],
+  ['safeguarding_concern', 'Documented safeguarding concern', 'doctor'],
+  ['discussions', 'Discussions and notifications actually performed', 'doctor'],
+  ['disposition', 'Admission / discharge and follow-up', 'doctor'],
+  ['doctor_name', 'Reporting doctor name', 'doctor'],
+  ['doctor_id', 'Reporting doctor identification', 'doctor'],
+  ['hospital', 'Hospital / workplace', 'doctor'],
+  ['office_address', 'Office address', 'doctor'],
+  ['report_date', 'Report date', 'doctor'],
+];
+type Values = Record<string, string>;
+type Template = {
+  name: string;
+  bytes: Uint8Array;
+  fields: { name: string; kind: string }[];
+  mapping: Values;
+};
+const sample =
+  'DUMMY CASE. Alleged scald injury involving the hand after the child dipped his hand into hot Maggi soup at approximately 9.00 PM yesterday. Father reportedly witnessed the incident and attempted to stop the child unsuccessfully. Father immediately removed the hand and cooled it with running water. The child attended a clinic and was brought to A&E today for further evaluation. Possible environmental safety concern documented; intention unclear.';
+const paths = ['resources/borang9.pdf', 'resources/jkm.pdf'];
+const escapeHtml = (s: string) =>
+  s.replace(
+    /[&<>"']/g,
+    c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[
+        c
+      ]!
+  );
+function download(data: BlobPart, name: string, type: string) {
+  const url = URL.createObjectURL(new Blob([data], { type }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+export default function ScanApp() {
+  const [tab, setTab] = useState('History');
+  const [notes, setNotes] = useState('');
+  const [values, setValues] = useState<Values>({});
+  const [sources, setSources] = useState<Values>({});
+  const [household, setHousehold] = useState<Values>({});
+  const [resolved, setResolved] = useState<Values>({});
+  const [dummy, setDummy] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const [reviewed, setReviewed] = useState(false);
+  const [status, setStatus] = useState('Draft');
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [preview, setPreview] = useState('');
+  const [recipient, setRecipient] = useState('');
+  const [method, setMethod] = useState('');
+  const [sentAt, setSentAt] = useState('');
+  const [sentLog, setSentLog] = useState('');
+  const [portal, setPortal] = useState<Portal | null>(() => readPortal());
+  const [caseId, setCaseId] = useState(() => readPortal()?.caseId || crypto.randomUUID());
+  const invalidate = () => {
+    setReviewed(false);
+    setStatus('Draft');
+    setSentLog('');
+  };
+  const setValue = (key: string, value: string) => {
+    setValues(v => ({ ...v, [key]: value }));
+    setSources(s => ({ ...s, [key]: 'Doctor entry' }));
+    invalidate();
+  };
+  const conflicts = FIELDS.filter(
+    ([key]) =>
+      household[key] &&
+      values[key] &&
+      household[key].trim() !== values[key].trim() &&
+      !resolved[key]
+  );
+  const missing = FIELDS.filter(([key]) => !values[key]?.trim());
+  async function extract() {
+    if (!dummy || !notes.trim()) {
+      setMessage('Confirm dummy data and paste a history first.');
+      return;
+    }
+    setBusy(true);
+    setMessage('');
+    try {
+      const { data } = await api.post('/api/extract', {
+        notes,
+        dummyOnly: dummy,
+      });
+      const next: Values = {};
+      for (const [key] of FIELDS)
+        next[key] =
+          typeof data.fields?.[key] === 'string' ? data.fields[key] : '';
+      setValues(next);
+      setSources(
+        Object.fromEntries(
+          FIELDS.map(([k]) => [k, 'AI draft from pasted notes'])
+        )
+      );
+      setHousehold({});
+      setResolved({});
+      invalidate();
+      setTab('Information');
+      setMessage('Draft extracted. Confirm dates and attribution before use.');
+    } catch {
+      setMessage(
+        'Extraction failed. Retry or use Information to enter fields manually.'
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  function questionnaire() {
+    const inputs = FIELDS.filter(f => f[2] === 'household')
+      .map(
+        ([key, label]) =>
+          '<label>' +
+          escapeHtml(label) +
+          '<textarea name="' +
+          key +
+          '">' +
+          escapeHtml(values[key] || '') +
+          '</textarea></label>'
+      )
+      .join('');
+    const html =
+      '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Child and Family Information Form</title><style>body{font:16px system-ui;background:#f5f7fa;color:#172638;max-width:680px;margin:24px auto;padding:20px}label{display:block;margin:18px 0}textarea{box-sizing:border-box;display:block;width:100%;min-height:64px;padding:12px;border:1px solid #bbc8d3;border-radius:8px;font:inherit}button{background:#12665e;color:white;border:0;border-radius:8px;padding:14px;font:inherit}</style></head><body><h1>Child and Family Information Form</h1><p>Dummy-data pilot. This form supports the child’s assessment and documentation. Confirm or correct the supplied account. Write unknown if unavailable. Answers remain on this device until you download and return the response file to the attending doctor.</p><form id="f">' +
+      inputs +
+      '<label><input type="checkbox" id="confirm" required> I confirm these answers reflect my account.</label><button>Download answers</button></form><p id="msg"></p><script>document.getElementById("f").onsubmit=function(e){e.preventDefault();const fields=Object.fromEntries(new FormData(e.target));const payload={version:1,caseId:' +
+      JSON.stringify(caseId) +
+      ',fields,confirmed:true};const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}));a.download="household-answers.json";a.click();document.getElementById("msg").textContent="Answers downloaded. Return the file to the attending doctor."};</script></body></html>';
+    download(html.replace('</body>', "<script>const form=document.getElementById(\"f\");const type=document.createElement(\"select\");type.name=\"child_id_type\";type.innerHTML=\"<option>Malaysian IC</option><option>Passport</option><option>Other document</option>\";const typeOld=form.elements.namedItem(\"child_id_type\");if(typeOld)typeOld.replaceWith(type);function recalc(){const raw=form.elements.namedItem(\"child_id\").value.replace(/[-\\\\s]/g,\"\");const dob=form.elements.namedItem(\"child_dob\");const age=form.elements.namedItem(\"child_age\");const sex=form.elements.namedItem(\"child_gender\");if(type.value!==\"Malaysian IC\"||!/^\\\\d{12}$/.test(raw)){dob.value=\"\";age.value=\"\";sex.value=\"\";return;}const today=new Intl.DateTimeFormat(\"en-CA\",{timeZone:\"Asia/Kuala_Lumpur\",year:\"numeric\",month:\"2-digit\",day:\"2-digit\"}).format(new Date());let year=2000+Number(raw.slice(0,2));if(year>Number(today.slice(0,4)))year-=100;const value=year+\"-\"+raw.slice(2,4)+\"-\"+raw.slice(4,6);const date=new Date(value+\"T00:00:00Z\");if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==value||value>today){dob.value=\"\";age.value=\"\";sex.value=\"\";return;}dob.value=value;let years=Number(today.slice(0,4))-year;if(today.slice(5)<value.slice(5))years--;age.value=years+\" years\";sex.value=Number(raw[11])%2?\"Male\":\"Female\";}form.elements.namedItem(\"child_id\").addEventListener(\"input\",recalc);type.addEventListener(\"change\",recalc);</script>" + '</body>'), 'household-questionnaire.html', 'text/html');
+    setMessage(
+      'Household questionnaire downloaded. It contains household fields only.'
+    );
+  }
+  async function importAnswers(file?: File) {
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      if (
+        parsed.caseId !== caseId ||
+        parsed.confirmed !== true ||
+        !parsed.fields ||
+        typeof parsed.fields !== 'object'
+      )
+        throw new Error();
+      const next: Values = {};
+      for (const [k, , role] of FIELDS)
+        if (role === 'household' && typeof parsed.fields[k] === 'string')
+          next[k] = parsed.fields[k];
+      setHousehold(next);
+      setResolved({});
+      setValues(old => {
+        const v = { ...old };
+        for (const k of Object.keys(next)) if (!v[k]) v[k] = next[k];
+        return v;
+      });
+      setSources(old => {
+        const s = { ...old };
+        for (const k of Object.keys(next))
+          if (!values[k]) s[k] = 'Household response';
+        return s;
+      });
+      invalidate();
+      setTab('Review');
+      setMessage(
+        'Answers imported. Differences remain visible for doctor review.'
+      );
+    } catch {
+      setMessage(
+        'Invalid response file or case mismatch. No answers imported.'
+      );
+    }
+  }
+  async function loadTemplate(bytes: ArrayBuffer, name: string) {
+    const pdf = await PDFDocument.load(bytes);
+    const fields = pdf
+      .getForm()
+      .getFields()
+      .map(f => ({
+        name: f.getName(),
+        kind:
+          f instanceof PDFTextField
+            ? 'text'
+            : f instanceof PDFCheckBox
+              ? 'checkbox'
+              : 'unsupported',
+      }));
+    if (!fields.length) throw new Error('This PDF has no fillable fields.');
+    const mapping: Values = {};
+    const aliases: Values = {
+      'Nama Ibu': 'mother_name',
+      'Nama bapa': 'father_name',
+      'Nama Penjaga': 'guardian_name',
+      'No Tel': 'guardian_phone',
+      'Alamat terkini': 'contact_address',
+      Nama_pegawai: 'doctor_name',
+      'Pengenalan No': 'doctor_id',
+    };
+    fields.forEach(f => {
+      mapping[f.name] = FIELDS.some(([k]) => k === f.name)
+        ? f.name
+        : aliases[f.name] || '';
+    });
+    setTemplates(ts => [
+      ...ts.filter(t => t.name !== name),
+      { name, bytes: new Uint8Array(bytes), fields, mapping },
+    ]);
+    invalidate();
+    setMessage(
+      name +
+        ': ' +
+        fields.length +
+        ' fields found. Check every proposed mapping.'
+    );
+  }
+  async function loadResources() {
+    setBusy(true);
+    try {
+      for (let i = 0; i < paths.length; i++) {
+        const response = await fetch(
+          new URL('./' + paths[i], document.baseURI)
+        );
+        if (!response.ok)
+          throw new Error(
+            'Add both PDFs in AppDeploy Resources or choose them below.'
+          );
+        await loadTemplate(
+          await response.arrayBuffer(),
+          i === 0 ? 'Borang 9' : 'JKM referral'
+        );
+      }
+    } catch (e) {
+      setMessage(
+        e instanceof Error ? e.message : 'Unable to load PDF templates.'
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function exportPdf(t: Template) {
+    if (!reviewed || conflicts.length) {
+      setMessage('Complete doctor review before PDF export.');
+      return;
+    }
+    try {
+      const pdf = await PDFDocument.load(t.bytes);
+      const form = pdf.getForm();
+      for (const f of t.fields) {
+        const key = t.mapping[f.name];
+        if (!key) continue;
+        const field = form.getField(f.name);
+        if (field instanceof PDFTextField) field.setText(values[key] || '');
+        if (field instanceof PDFCheckBox) {
+          if (key === '__checked') field.check();
+          else if (key === '__unchecked') field.uncheck();
+        }
+      }
+      const bytes = await pdf.save();
+      if (preview) URL.revokeObjectURL(preview);
+      setPreview(
+        URL.createObjectURL(
+          new Blob([bytes as BlobPart], { type: 'application/pdf' })
+        )
+      );
+      download(
+        bytes as BlobPart,
+        t.name.replace(/ /g, '_') + '_draft.pdf',
+        'application/pdf'
+      );
+      setStatus('Exported');
+      setMessage(
+        'PDF exported. Check all pages for clipping and correct ticks. Signatures and reporting remain separate.'
+      );
+    } catch (e) {
+      setMessage(
+        'PDF export failed: ' +
+          (e instanceof Error ? e.message : 'unsupported field or font')
+      );
+    }
+  }
+  async function clear() {
+    if (!window.confirm('Clear this case and all answers from this session?'))
+      return;
+    if (portal) {
+      try { await api.post('/api/household-delete', { id: portal.id, doctorToken: portal.doctorToken }); }
+      catch { setMessage('Could not delete online questionnaire. Retry Clear case.'); return; }
+      rememberPortal(null); setPortal(null);
+    }
+    if (preview) URL.revokeObjectURL(preview);
+    setNotes('');
+    setValues({});
+    setSources({});
+    setHousehold({});
+    setResolved({});
+    setPreview('');
+    setTemplates([]);
+    setCaseId(crypto.randomUUID());
+    setReviewed(false);
+    setStatus('Draft');
+    setSentLog('');
+    setRecipient('');
+    setMethod('');
+    setSentAt('');
+    setMessage('Case cleared.');
+    setTab('History');
+  }
+  if (new URLSearchParams(window.location.hash.slice(1)).has('household')) {
+    return <OnlineHousehold fields={FIELDS.filter(f => f[2] === 'household')} />;
+  }
+  return (
+    <div className="shell">
+      <aside>
+        <div className="brand">
+          <ShieldCheck size={30} />
+          <span>
+            SCAN<span className="brand-sub">FORM ASSISTANT</span>
+          </span>
+        </div>
+        <div className="workspace-label">CASE WORKSPACE</div>
+        {['History', 'Information', 'Household', 'Review', 'PDF templates'].map(
+          (s, i) => (
+            <button
+              className={'nav ' + (tab === s ? 'active' : '')}
+              key={s}
+              onClick={() => setTab(s)}
+            >
+              <span className="step">{i + 1}</span>
+              {s}
+            </button>
+          )
+        )}
+        <div className="sidebar-foot">
+          <span className="pill">DUMMY-DATA PILOT</span>
+          <p>
+            One case. One reviewed record.
+            <br />
+            Two official forms.
+          </p>
+          <button className="clear" onClick={clear}>
+            Clear case
+          </button>
+        </div>
+      </aside>
+      <main><BackendSettings/>
+        <header>
+          <div>
+            <div className="eyebrow">CHILD PROTECTION · BORANG 9 + JKM</div>
+            <h1>
+              {tab === 'History'
+                ? 'Start with the story.'
+                : tab === 'Information'
+                  ? 'Fill the gaps.'
+                  : tab === 'Household'
+                    ? 'Let the family answer.'
+                    : tab === 'Review'
+                      ? 'Review the whole picture.'
+                      : 'Prepare the official forms.'}
+            </h1>
+            <p className="subtitle">
+              Paste once. Collect missing details. Review before generating.
+            </p>
+          </div>
+          <span className="status">
+            <span /> {status}
+          </span>
+        </header>
+        <div className="banner">
+          <ShieldCheck size={18} />
+          <span>
+            Fictional information only. AI extraction sends notes to the hosted
+            service. Case answers are held in this browser session; refreshing
+            clears them. Online household answers are stored until deletion; links expire after 24 hours. This pilot has no clinical approval.
+          </span>
+        </div>
+        {message && (
+          <div className="notice" role="status">
+            {message}
+          </div>
+        )}
+        {tab === 'History' && (
+          <div className="layout">
+            <section className="card">
+              <div className="card-head">
+                <ClipboardList size={20} />
+                <h2>Clinical history</h2>
+                <button
+                  className="text-button"
+                  onClick={() => {
+                    setNotes(sample);
+                    setDummy(true);
+                  }}
+                >
+                  Load scald example
+                </button>
+              </div>
+              <p>
+                Paste the documented history, findings and actions. Unknown
+                information stays unknown.
+              </p>
+              <textarea
+                aria-label="Clinical history"
+                className="notes"
+                value={notes}
+                onChange={e => {
+                  setNotes(e.target.value);
+                  invalidate();
+                }}
+              />
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={dummy}
+                  onChange={e => setDummy(e.target.checked)}
+                />{' '}
+                I am using fictional / dummy information only.
+              </label>
+              <div className="actions">
+                <button className="primary" disabled={busy} onClick={extract}>
+                  {busy ? 'Extracting…' : 'Identify required information'}
+                  <ArrowRight size={16} />
+                </button>
+                <button onClick={() => setTab('Information')}>
+                  Enter manually
+                </button>
+              </div>
+            </section>
+            <section className="card guide">
+              <div className="eyebrow">YOUR WORKFLOW</div>
+              <h2>From notes to a reviewed draft</h2>
+              {[
+                'Extract documented facts',
+                'Separate household and doctor fields',
+                'Collect household answers',
+                'Resolve differences and review',
+                'Map, preview and export PDFs',
+              ].map((s, i) => (
+                <div className="guide-step" key={s}>
+                  <span>{i + 1}</span>
+                  {s}
+                </div>
+              ))}
+              <div className="callout">
+                Household reports, clinical findings and safeguarding
+                interpretation keep their own sources.
+              </div>
+            </section>
+          </div>
+        )}
+        {tab === 'Information' && (
+          <section className="card">
+            <div className="card-head">
+              <h2>Shared case record</h2>
+              <span className="pill">
+                {missing.length} fields to complete or mark unknown
+              </span>
+            </div>
+            <div className="field-grid">
+              <IdentityFields values={values} change={(next,key) => {
+                setValues(next);
+                setSources(s => ({...s, ...Object.fromEntries(identityKeys.map(k=>[k, key==='child_id' && next.child_id_type !== 'Passport' ? 'Derived from IC - confirm' : 'Doctor entry']))}));
+                invalidate();
+              }} />
+              {FIELDS.filter(([key])=>!identityKeys.includes(key)).map(([key, label, role]) => (
+                <label key={key}>
+                  {label}
+                  <span className="field-meta">
+                    {role} · {sources[key] || 'Not supplied'}
+                  </span>
+                  <textarea
+                    value={values[key] || ''}
+                    onChange={e => setValue(key, e.target.value)}
+                  />
+                </label>
+              ))}
+            </div>
+            <button className="primary" onClick={() => setTab('Household')}>
+              Prepare household questionnaire
+              <ArrowRight size={16} />
+            </button>
+          </section>
+        )}
+        {tab === 'Household' && (
+          <div className="layout">
+            <section className="card">
+              <h2>Child and Family Information Form</h2>
+              <OnlineControls portal={portal} setPortal={setPortal} caseId={caseId} receive={async response => {
+                await importAnswers(new File([JSON.stringify(response)], 'household-answers.json', { type: 'application/json' }));
+              }} />
+              <p>
+                The downloaded form contains household details and their
+                reported account only. Clinical findings and internal
+                safeguarding notes are excluded.
+              </p>
+              <p>
+                Optional offline method: download the questionnaire, let
+                the household complete it, then import their downloaded answer
+                file here. Keep this doctor session open.
+              </p>
+              <button className="primary" onClick={questionnaire}>
+                <Download size={17} />
+                Download household questionnaire
+              </button>
+              <hr />
+              <label className="upload">
+                Import household answers
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={e => importAnswers(e.target.files?.[0])}
+                />
+              </label>
+            </section>
+            <section className="card">
+              <h2>Questions included</h2>
+              {FIELDS.filter(f => f[2] === 'household').map(([key, label]) => (
+                <div className="question" key={key}>
+                  {label}
+                  <span>{values[key] ? 'Confirm / correct' : 'Missing'}</span>
+                </div>
+              ))}
+            </section>
+          </div>
+        )}
+        {tab === 'Review' && (
+          <section className="card">
+            <h2>Doctor review</h2>
+            <p>
+              {conflicts.length} unresolved differences · {missing.length} blank
+              fields. Enter unknown, not obtained or not applicable explicitly
+              where appropriate.
+            </p>
+            {FIELDS.filter(
+              ([k]) =>
+                household[k] &&
+                values[k] &&
+                household[k].trim() !== values[k].trim()
+            ).map(([k, label]) => (
+              <div className="conflict" key={k}>
+                <strong>{label}</strong>
+                <div className="field-grid">
+                  <div>
+                    Doctor / notes<p>{values[k]}</p>
+                  </div>
+                  <div>
+                    Household account<p>{household[k]}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setValues(v => ({ ...v, [k]: household[k] }));
+                    setSources(s => ({
+                      ...s,
+                      [k]: 'Household response selected by doctor',
+                    }));
+                    setResolved(r => ({ ...r, [k]: 'Household selected' }));
+                    invalidate();
+                  }}
+                >
+                  Use household answer
+                </button>
+                <button
+                  onClick={() => {
+                    setResolved(r => ({
+                      ...r,
+                      [k]: 'Doctor retained original',
+                    }));
+                    invalidate();
+                  }}
+                >
+                  Retain original
+                </button>
+                {resolved[k] && <span> {resolved[k]}</span>}
+              </div>
+            ))}
+            <div className="review-list">
+              {FIELDS.map(([k, label]) => (
+                <div key={k}>
+                  <strong>{label}</strong>
+                  <span>{values[k] || 'Not supplied'}</span>
+                  <small>{sources[k] || 'Missing'}</small>
+                </div>
+              ))}
+            </div>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={reviewed}
+                disabled={conflicts.length > 0}
+                onChange={e => {
+                  setReviewed(e.target.checked);
+                  setStatus(e.target.checked ? 'Reviewed' : 'Draft');
+                }}
+              />
+              <span>
+                I checked identities, dates, attribution, findings, missing
+                fields and actions. This confirms review, not signature or
+                notification.
+              </span>
+            </label>
+            <div className="actions">
+              <button
+                className="primary"
+                onClick={() => setTab('PDF templates')}
+              >
+                Open PDF templates
+                <ArrowRight size={16} />
+              </button>
+              <button
+                onClick={() =>
+                  download(
+                    JSON.stringify(
+                      {
+                        version: 1,
+                        caseId,
+                        notes,
+                        values,
+                        sources,
+                        household,
+                        resolved,
+                        status,
+                        sentLog,
+                      },
+                      null,
+                      2
+                    ),
+                    'reviewed-case.json',
+                    'application/json'
+                  )
+                }
+              >
+                Download case record
+              </button>
+            </div>
+          </section>
+        )}
+        {tab === 'PDF templates' && (
+          <section className="card">
+            <div className="card-head">
+              <FileText />
+              <h2>Acrobat field mapping</h2>
+            </div>
+            <p>
+              Load your resource PDFs or select a blank fillable PDF. Map each
+              field to the shared record; leave signature fields unmapped.
+              Automatic suggestions need checking.
+            </p>
+            <div className="actions">
+              <button onClick={loadResources} disabled={busy}>
+                Load Borang 9 + JKM resources
+              </button>
+              <label className="upload">
+                Choose blank fillable PDF
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={async e => {
+                    const f = e.target.files?.[0];
+                    if (f)
+                      try {
+                        await loadTemplate(await f.arrayBuffer(), f.name);
+                      } catch (err) {
+                        setMessage(
+                          err instanceof Error ? err.message : 'Invalid PDF'
+                        );
+                      }
+                  }}
+                />
+              </label>
+            </div>
+            {!templates.length && (
+              <div className="empty">
+                <FileText size={32} />
+                <h3>No PDF templates loaded</h3>
+                <p>
+                  Add your Acrobat PDFs to begin mapping. The original PDF
+                  layout is preserved.
+                </p>
+              </div>
+            )}
+            {templates.map(t => (
+              <div className="template" key={t.name}>
+                <h3>
+                  {t.name} <small>{t.fields.length} fields</small>
+                </h3>
+                <div className="mapping">
+                  {t.fields.map(f => (
+                    <label key={f.name}>
+                      <span>
+                        {f.name}
+                        <small>{f.kind}</small>
+                      </span>
+                      <select
+                        aria-label={'Map ' + f.name}
+                        value={t.mapping[f.name] || ''}
+                        onChange={e => {
+                          setTemplates(ts =>
+                            ts.map(x =>
+                              x.name === t.name
+                                ? {
+                                    ...x,
+                                    mapping: {
+                                      ...x.mapping,
+                                      [f.name]: e.target.value,
+                                    },
+                                  }
+                                : x
+                            )
+                          );
+                          invalidate();
+                        }}
+                      >
+                        <option value="">
+                          Leave blank / signature / manual
+                        </option>
+                        {f.kind === 'checkbox' ? (
+                          <>
+                            <option value="__checked">Checked</option>
+                            <option value="__unchecked">Unchecked</option>
+                          </>
+                        ) : (
+                          FIELDS.map(([k, label]) => (
+                            <option key={k} value={k}>
+                              {label}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+                <button
+                  className="primary"
+                  disabled={!reviewed || !!conflicts.length}
+                  onClick={() => exportPdf(t)}
+                >
+                  Preview and download {t.name}
+                </button>
+              </div>
+            ))}
+            {!reviewed && (
+              <p className="callout">
+                Complete or repeat Doctor review after changing the data or
+                mapping to enable export.
+              </p>
+            )}
+            {preview && (
+              <iframe
+                title="Completed PDF preview"
+                src={preview}
+                className="pdf-preview"
+              />
+            )}
+            <hr />
+            <h2>Record actual delivery</h2>
+            <p>
+              PDF generation does not submit a report. Record delivery only
+              after it has happened.
+            </p>
+            <div className="field-grid">
+              <label>
+                Recipient
+                <input
+                  value={recipient}
+                  onChange={e => setRecipient(e.target.value)}
+                />
+              </label>
+              <label>
+                Method
+                <input
+                  value={method}
+                  onChange={e => setMethod(e.target.value)}
+                />
+              </label>
+              <label>
+                Date and time
+                <input
+                  type="datetime-local"
+                  value={sentAt}
+                  onChange={e => setSentAt(e.target.value)}
+                />
+              </label>
+            </div>
+            <button
+              disabled={
+                status !== 'Exported' ||
+                !recipient.trim() ||
+                !method.trim() ||
+                !sentAt
+              }
+              onClick={() => {
+                setStatus('Sent');
+                setSentLog(recipient + ' · ' + method + ' · ' + sentAt);
+              }}
+            >
+              Record as sent
+            </button>
+            {sentLog && (
+              <p>
+                <CheckCircle2 size={16} />
+                {sentLog}
+              </p>
+            )}
+          </section>
+        )}
+        <footer>SCAN case workflow · Draft → Reviewed → Exported → Sent</footer>
+      </main>
+    </div>
+  );
+}
