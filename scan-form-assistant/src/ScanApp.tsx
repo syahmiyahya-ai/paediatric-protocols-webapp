@@ -37,7 +37,7 @@ function download(data: BlobPart, name: string, type: string) {
 }
 export default function ScanApp() {
   const [initial] = useState(() => readDraft());
-  const [tab, setTab] = useState('History');
+  const [tab, setTab] = useState(window.location.hash === '#templates' ? 'PDF templates' : 'History');
   const [notes, setNotes] = useState(initial.notes || '');
   const [values, setValues] = useState<Values>(initial.values || {});
   const [sources, setSources] = useState<Values>(initial.sources || {});
@@ -277,6 +277,7 @@ export default function ScanApp() {
               Paste once. Collect missing details. Review before generating.
             </p>
           </div>
+          <button type="button" onClick={()=>setTab('PDF templates')}>Upload PDFs</button>
           <span className="status">
             <span /> {status}
           </span>

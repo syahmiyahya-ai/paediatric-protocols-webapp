@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from './api';
 import { FIELDS } from './fields';
 import PdfCanvas from './PdfCanvas';
 import { inspectTemplate, fillTemplate, templateStore, saveDownload, type PdfTemplate } from './pdfEngine';
 type Props = { values: Record<string,string>; reviewed: boolean; conflicts: number; invalidate:()=>void; exported:()=>void };
 export default function PdfWorkspace({values,reviewed,conflicts,invalidate,exported}:Props) {
+  const borangInput = useRef<HTMLInputElement>(null);
+  const jkmInput = useRef<HTMLInputElement>(null);
   const [templates,setTemplates]=useState<PdfTemplate[]>([]);
   const [active,setActive]=useState('');
   const [page,setPage]=useState(0);
@@ -41,7 +43,7 @@ export default function PdfWorkspace({values,reviewed,conflicts,invalidate,expor
         const bytes=Uint8Array.from(atob(data.base64),(c:string)=>c.charCodeAt(0));
         await load(bytes,name);
       }
-    }catch{setMessage('The two template PDFs have not been uploaded yet. Use the Borang 9 and JKM upload controls below, or AppDeploy Resources.');}
+    }catch{setMessage('The two template PDFs have not been uploaded yet. Use the Upload Borang 9 PDF and Upload JKM referral PDF buttons above.');}
     finally{setBusy(false);}
   }
   async function exportOne(t:PdfTemplate,download=true) {
@@ -88,10 +90,14 @@ export default function PdfWorkspace({values,reviewed,conflicts,invalidate,expor
   return <section className="card">
     <h2>Official PDF templates</h2>
     <p>Use your exact blank forms. Acrobat fields are detected automatically. For scanned or non-fillable PDFs, select a field and drag a box over its fill area. Blank templates and mappings stay on this device; patient values are kept separately.</p>
-    <div className="actions"><button disabled={busy} onClick={resources}>Load Borang 9 + JKM resources</button>
-      <label className="upload">Upload Borang 9<input aria-label="Upload Borang 9" type="file" accept=".pdf,application/pdf" onChange={e=>void upload(e.target.files?.[0],'Borang 9')}/></label>
-      <label className="upload">Upload JKM referral<input aria-label="Upload JKM referral" type="file" accept=".pdf,application/pdf" onChange={e=>void upload(e.target.files?.[0],'JKM referral')}/></label>
+    <div className="actions">
+      <button type="button" disabled={busy} onClick={()=>borangInput.current?.click()}>Upload Borang 9 PDF</button>
+      <button type="button" disabled={busy} onClick={()=>jkmInput.current?.click()}>Upload JKM referral PDF</button>
+      <input ref={borangInput} hidden aria-label="Upload Borang 9" type="file" accept=".pdf,application/pdf" onChange={e=>{void upload(e.target.files?.[0],'Borang 9');e.target.value='';}}/>
+      <input ref={jkmInput} hidden aria-label="Upload JKM referral" type="file" accept=".pdf,application/pdf" onChange={e=>{void upload(e.target.files?.[0],'JKM referral');e.target.value='';}}/>
     </div>
+    <p>Choose the blank PDFs from your device. Your Acrobat fields will be detected automatically.</p>
+    <details><summary>Previously uploaded app resources</summary><button disabled={busy} onClick={resources}>Load Borang 9 + JKM resources</button></details>
     {message&&<p className="notice" role="status">{message}</p>}
     {!templates.length&&<p className="empty">Upload both blank PDFs to set up the official forms.</p>}
     {!!templates.length&&<label>Template<select value={active} onChange={e=>{setActive(e.target.value);setPage(0);setPreview(null);}}>{templates.map(t=><option key={t.name}>{t.name}</option>)}</select></label>}
